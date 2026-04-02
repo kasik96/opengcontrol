@@ -1,11 +1,11 @@
 # opengcontrol
 
-Open-source CLI alternative to Logitech G software on macOS.
+Open-source CLI for Logitech G mice — macOS and Windows.
 
 <img width="978" height="714" alt="image" src="https://github.com/user-attachments/assets/0a2f24ef-da88-4bbd-965f-f7d80054a4d5" />
 
 
-Configure your Logitech G-series mouse — DPI, polling rate, onboard profiles — without installing Logitech G HUB or Logi Options+. Settings are written directly to the mouse's onboard flash memory, so they persist across USB reconnects and work on any computer.
+Configure your Logitech G-series mouse — DPI, polling rate, onboard profiles — without installing Logitech G HUB or Logi Options+. Works on macOS and Windows. Settings are written directly to the mouse's onboard flash memory, so they persist across USB reconnects and work on any computer.
 
 > **Status:** Early development. Contributions welcome.
 
@@ -28,7 +28,11 @@ More devices are easy to add — see [docs/ADDING_DEVICES.md](docs/ADDING_DEVICE
 
 ## Requirements
 
-- macOS 12 or later (Apple Silicon and Intel)
+| Platform | Version |
+|----------|---------|
+| macOS | 12 or later (Apple Silicon and Intel) |
+| Windows | 10 or later (x86-64) |
+
 - Rust toolchain (`rustup` — see below)
 - Mouse connected via USB
 
@@ -61,7 +65,9 @@ cargo build --release
 
 ---
 
-## macOS permission
+## Platform notes
+
+### macOS
 
 macOS requires **Input Monitoring** permission to access HID devices.
 
@@ -73,7 +79,11 @@ opengcontrol doctor --open-settings
 
 This opens **System Settings → Privacy & Security → Input Monitoring** where you can add `opengcontrol` to the allowed list.
 
-> **Note:** Close Logitech G HUB or Logi Options+ before using opengcontrol — they hold exclusive access to the device.
+### Windows
+
+No special permissions are needed. HID devices are accessible to any process.
+
+> **Note (all platforms):** Close Logitech G HUB or Logi Options+ before using opengcontrol — they hold exclusive access to the device.
 
 ---
 
@@ -215,8 +225,9 @@ opengcontrol --output json info
 If you have more than one supported mouse connected, target a specific one with `--device`:
 
 ```bash
-opengcontrol list                          # find the path
-opengcontrol --device /dev/... dpi set 800
+opengcontrol list                                   # find the path
+opengcontrol --device <path> dpi set 800            # macOS: /dev/...
+                                                    # Windows: \\?\hid#...
 ```
 
 ---
@@ -225,7 +236,7 @@ opengcontrol --device /dev/... dpi set 800
 
 opengcontrol uses the **HID++ 2.0** protocol — the same protocol Logitech's own software uses — reverse-engineered from open-source projects and community documentation.
 
-Communication goes through macOS's native IOKit HID layer (via the [`hidapi`](https://github.com/libusb/hidapi) library). No kernel extensions, no background daemon, no installer.
+Communication goes through the OS HID layer via the [`hidapi`](https://github.com/libusb/hidapi) library (IOKit on macOS, Windows HID API on Windows). No kernel extensions, no background daemon, no installer.
 
 Each invocation opens the device, performs the requested operation, and exits. Settings written to onboard flash persist without opengcontrol running.
 
@@ -252,7 +263,7 @@ opengcontrol/
 
 ## Adding a new device
 
-1. Find the USB IDs (`opengcontrol doctor` or `system_profiler SPUSBDataType`)
+1. Find the USB IDs (`opengcontrol doctor` or `system_profiler SPUSBDataType` on macOS / Device Manager on Windows)
 2. Create `crates/logitech-devices/src/devices/<model>.rs` with a `DeviceInfo` const
 3. Register it in `crates/logitech-devices/src/registry.rs`
 
@@ -267,7 +278,7 @@ Pull requests are welcome. Some good first areas:
 - **New devices** — G502, G Pro, MX Master 3
 - **RGB lighting** — feature `0x8071`, two zones on G403
 - **Button remapping** — feature `0x1B04`
-- **Linux support** — transport layer already abstracted
+- **Linux support** — `is_process_running` and permission guidance in `permissions.rs` / `doctor.rs` need a Linux variant (udev rules etc.)
 
 For protocol questions, the best references are [libratbag](https://github.com/libratbag/libratbag), [logiops](https://github.com/PixlOne/logiops), and the [HID++ 2.0 draft spec](https://lekensteyn.nl/files/logitech/logitech_hidpp_2.0_specification_draft_2012-06-04.pdf).
 
