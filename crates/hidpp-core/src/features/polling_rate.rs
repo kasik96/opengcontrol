@@ -41,7 +41,7 @@ impl PollingRate {
     pub fn get_rate_hz<T: HidTransport>(device: &HidppDevice<T>) -> Result<u16, HidppError> {
         let resp = device.call_feature_short(FeatureCode::PollingRate, 1, [0; 4])?;
         let index = resp.params()[0];
-        rate_index_to_hz(index).ok_or_else(|| HidppError::InvalidResponse {
+        rate_index_to_hz(index).ok_or(HidppError::InvalidResponse {
             expected: 1,
             actual: index as usize,
         })

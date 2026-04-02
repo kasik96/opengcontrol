@@ -128,7 +128,7 @@ impl DpiList {
         match self {
             Self::Discrete(list) => list.contains(&dpi),
             Self::Range { min, step, max } => {
-                dpi >= *min && dpi <= *max && (dpi - min) % step == 0
+                dpi >= *min && dpi <= *max && (dpi - min).is_multiple_of(*step)
             }
         }
     }
