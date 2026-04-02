@@ -30,7 +30,10 @@ impl Widget for DpiPanel<'_> {
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(border_style)
-            .title(Span::styled(" DPI ", Style::default().fg(CYAN).add_modifier(Modifier::BOLD)));
+            .title(Span::styled(
+                " DPI ",
+                Style::default().fg(CYAN).add_modifier(Modifier::BOLD),
+            ));
 
         let inner = block.inner(area);
         block.render(area, buf);
@@ -115,7 +118,11 @@ impl Widget for DpiPanel<'_> {
                 };
                 let hint = Line::from(Span::styled(
                     hint_text,
-                    if is_changed { Style::default().fg(AMBER) } else { Style::default().fg(DIM) },
+                    if is_changed {
+                        Style::default().fg(AMBER)
+                    } else {
+                        Style::default().fg(DIM)
+                    },
                 ));
                 let hint_area = Rect {
                     y: inner.y + inner.height - 1,

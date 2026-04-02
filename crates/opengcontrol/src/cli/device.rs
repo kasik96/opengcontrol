@@ -28,7 +28,10 @@ pub fn handle_list(output: OutputFormat) -> Result<(), String> {
         match output {
             OutputFormat::Human => {
                 println!();
-                println!("  {}  No supported Logitech devices found.", style::g_amber(style::SYM_WARN));
+                println!(
+                    "  {}  No supported Logitech devices found.",
+                    style::g_amber(style::SYM_WARN)
+                );
                 println!();
                 println!("  {}  Ensure the mouse is connected via USB.", dim("hint"));
                 println!("  {}  Close Logitech G HUB if it is running.", dim("hint"));

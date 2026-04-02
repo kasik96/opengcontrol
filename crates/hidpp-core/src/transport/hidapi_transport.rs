@@ -1,7 +1,7 @@
 use hidapi::HidDevice;
 
-use crate::protocol::error::HidppError;
 use super::HidTransport;
+use crate::protocol::error::HidppError;
 
 /// Production HID transport backed by the hidapi library.
 /// On macOS this uses Apple's IOHIDManager via the hidapi IOKit backend.
@@ -16,14 +16,20 @@ pub struct HidapiTransport {
 
 impl HidapiTransport {
     pub fn new(device: HidDevice) -> Self {
-        Self { device, uses_numbered_reports: false }
+        Self {
+            device,
+            uses_numbered_reports: false,
+        }
     }
 
     /// Use this constructor for wireless Unifying receiver interfaces
     /// (usage_page=0xFF00). The Unifying receiver exposes numbered HID reports,
     /// so hidapi must NOT receive the extra 0x00 prefix byte.
     pub fn new_wireless(device: HidDevice) -> Self {
-        Self { device, uses_numbered_reports: true }
+        Self {
+            device,
+            uses_numbered_reports: true,
+        }
     }
 }
 

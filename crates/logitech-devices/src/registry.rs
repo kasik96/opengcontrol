@@ -53,7 +53,11 @@ pub fn enumerate_supported_devices(
     // Prefer the HID++ receiver interface over standard mouse/keyboard interfaces.
     // usage_page=0xFF00, usage=0x01 is the Unifying receiver's short-message channel.
     matches.sort_by_key(|(_, h)| {
-        if h.usage_page() == 0xFF00 && h.usage() == 0x01 { 0u8 } else { 1u8 }
+        if h.usage_page() == 0xFF00 && h.usage() == 0x01 {
+            0u8
+        } else {
+            1u8
+        }
     });
 
     matches
@@ -98,8 +102,8 @@ mod tests {
         assert!(dev.validate_dpi(800).is_ok());
         assert!(dev.validate_dpi(12000).is_ok());
         assert!(dev.validate_dpi(12001).is_err()); // above max
-        assert!(dev.validate_dpi(100).is_err());   // below min
-        assert!(dev.validate_dpi(801).is_err());   // not on 50-step grid
+        assert!(dev.validate_dpi(100).is_err()); // below min
+        assert!(dev.validate_dpi(801).is_err()); // not on 50-step grid
     }
 
     #[test]

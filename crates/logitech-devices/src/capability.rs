@@ -25,13 +25,9 @@ pub enum Capability {
         zones: &'static [RgbZone],
     },
     /// Feature 0x8110 — Onboard Profiles
-    OnboardProfiles {
-        profile_count: u8,
-    },
+    OnboardProfiles { profile_count: u8 },
     /// Button remapping via onboard profiles
-    ButtonRemapping {
-        button_count: u8,
-    },
+    ButtonRemapping { button_count: u8 },
 }
 
 /// A named RGB lighting zone on a device.

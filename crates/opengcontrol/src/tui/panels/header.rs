@@ -20,14 +20,20 @@ impl Widget for Header<'_> {
         let status = if self.refreshing {
             Span::styled(" refreshing… ", Style::default().fg(CYAN))
         } else {
-            Span::styled(" live ", Style::default().fg(CYAN).add_modifier(Modifier::DIM))
+            Span::styled(
+                " live ",
+                Style::default().fg(CYAN).add_modifier(Modifier::DIM),
+            )
         };
 
         let id = format!(" {:04X}:{:04X} ", self.vid, self.pid);
 
         let title_line = Line::from(vec![
             Span::raw(" ◈  "),
-            Span::styled(self.name, Style::default().fg(CYAN).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                self.name,
+                Style::default().fg(CYAN).add_modifier(Modifier::BOLD),
+            ),
             Span::styled(format!("  {id}"), Style::default().fg(DIM)),
         ]);
 

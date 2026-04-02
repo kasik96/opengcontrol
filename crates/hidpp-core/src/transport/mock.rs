@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 use std::sync::Mutex;
 
-use crate::protocol::error::HidppError;
 use super::HidTransport;
+use crate::protocol::error::HidppError;
 
 /// Deterministic in-memory transport for unit tests.
 /// Caller pre-loads response bytes; writes are recorded for inspection.
@@ -64,7 +64,9 @@ mod tests {
         let transport = MockTransport::new();
         transport.push_response(vec![0x10, 0xFF, 0x01, 0x00, 0x06, 0x40, 0x00]);
 
-        transport.write(&[0x00, 0x10, 0xFF, 0x01, 0x20, 0x00, 0x00, 0x00]).unwrap();
+        transport
+            .write(&[0x00, 0x10, 0xFF, 0x01, 0x20, 0x00, 0x00, 0x00])
+            .unwrap();
 
         let mut buf = [0u8; 32];
         let n = transport.read(&mut buf, 1000).unwrap();

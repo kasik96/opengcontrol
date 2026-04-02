@@ -56,11 +56,17 @@ pub fn handle_profile(
 
             let info = match OnboardProfiles::get_info(ctx.device()) {
                 Ok(v) => v,
-                Err(e) => { sp.finish_err("Failed to read profile info"); return Err(e.to_string()); }
+                Err(e) => {
+                    sp.finish_err("Failed to read profile info");
+                    return Err(e.to_string());
+                }
             };
             let active = match OnboardProfiles::get_active_profile(ctx.device()) {
                 Ok(v) => v,
-                Err(e) => { sp.finish_err("Failed to read active profile"); return Err(e.to_string()); }
+                Err(e) => {
+                    sp.finish_err("Failed to read active profile");
+                    return Err(e.to_string());
+                }
             };
 
             let mut profiles = Vec::new();
@@ -101,7 +107,11 @@ pub fn handle_profile(
                                 .join("  ");
 
                             println!("     {:<14}{}", dim("DPI slots"), dpi_str);
-                            println!("     {:<14}{}", dim("Poll rate"), g_cyan(&format!("{} Hz", p.polling_rate_hz)));
+                            println!(
+                                "     {:<14}{}",
+                                dim("Poll rate"),
+                                g_cyan(&format!("{} Hz", p.polling_rate_hz))
+                            );
                         } else {
                             println!("     {}", dim("(unreadable)"));
                         }
@@ -111,15 +121,17 @@ pub fn handle_profile(
                 OutputFormat::Json => {
                     let data: Vec<_> = profiles
                         .iter()
-                        .map(|(i, p)| serde_json::json!({
-                            "index": i,
-                            "active": *i == active,
-                            "profile": p.as_ref().map(|p| serde_json::json!({
-                                "dpi_slots": p.dpi_slots,
-                                "active_dpi_slot": p.active_dpi_slot,
-                                "polling_rate_hz": p.polling_rate_hz,
-                            }))
-                        }))
+                        .map(|(i, p)| {
+                            serde_json::json!({
+                                "index": i,
+                                "active": *i == active,
+                                "profile": p.as_ref().map(|p| serde_json::json!({
+                                    "dpi_slots": p.dpi_slots,
+                                    "active_dpi_slot": p.active_dpi_slot,
+                                    "polling_rate_hz": p.polling_rate_hz,
+                                }))
+                            })
+                        })
                         .collect();
                     json::print_json(&serde_json::json!({ "active": active, "profiles": data }));
                 }
@@ -129,8 +141,14 @@ pub fn handle_profile(
         ProfileCommand::Active => {
             let sp = Spinner::new("Querying active profile…", output);
             let active = match OnboardProfiles::get_active_profile(ctx.device()) {
-                Ok(v) => { sp.clear(); v }
-                Err(e) => { sp.finish_err("Failed to read active profile"); return Err(e.to_string()); }
+                Ok(v) => {
+                    sp.clear();
+                    v
+                }
+                Err(e) => {
+                    sp.finish_err("Failed to read active profile");
+                    return Err(e.to_string());
+                }
             };
             match output {
                 OutputFormat::Human => println!(
@@ -138,7 +156,9 @@ pub fn handle_profile(
                     style::g_green(style::SYM_OK),
                     g_cyan_bold(&active.to_string())
                 ),
-                OutputFormat::Json => json::print_json(&ActiveProfileResult { active_profile: active }),
+                OutputFormat::Json => json::print_json(&ActiveProfileResult {
+                    active_profile: active,
+                }),
             }
         }
 
@@ -158,22 +178,32 @@ pub fn handle_profile(
                 )),
                 OutputFormat::Json => {
                     sp.clear();
-                    json::print_json(&ActiveProfileResult { active_profile: *index });
+                    json::print_json(&ActiveProfileResult {
+                        active_profile: *index,
+                    });
                 }
             }
         }
 
-        ProfileCommand::Export { index, output: out_path } => {
+        ProfileCommand::Export {
+            index,
+            output: out_path,
+        } => {
             let sp = Spinner::new(format!("Reading profile {index} from flash…"), output);
             let profile = match OnboardProfiles::read_profile(ctx.device(), *index) {
-                Ok(p) => { sp.clear(); p }
-                Err(e) => { sp.finish_err(format!("Failed to read profile {index}")); return Err(e.to_string()); }
+                Ok(p) => {
+                    sp.clear();
+                    p
+                }
+                Err(e) => {
+                    sp.finish_err(format!("Failed to read profile {index}"));
+                    return Err(e.to_string());
+                }
             };
 
-            let toml_str = toml::to_string_pretty(&profile)
-                .map_err(|e| format!("Serialize error: {e}"))?;
-            std::fs::write(out_path, toml_str)
-                .map_err(|e| format!("Write error: {e}"))?;
+            let toml_str =
+                toml::to_string_pretty(&profile).map_err(|e| format!("Serialize error: {e}"))?;
+            std::fs::write(out_path, toml_str).map_err(|e| format!("Write error: {e}"))?;
 
             match output {
                 OutputFormat::Human => style::print_ok(&format!(
@@ -189,8 +219,7 @@ pub fn handle_profile(
         }
 
         ProfileCommand::Import { file } => {
-            let contents = std::fs::read_to_string(file)
-                .map_err(|e| format!("Read error: {e}"))?;
+            let contents = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
             let profile: OnboardProfile =
                 toml::from_str(&contents).map_err(|e| format!("Parse error: {e}"))?;
             let index = profile.index;

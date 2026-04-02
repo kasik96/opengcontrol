@@ -58,7 +58,9 @@ impl<T: HidTransport> HidppDevice<T> {
         let index = FeatureIndex(response.params()[0]);
 
         if index.is_absent() {
-            return Err(HidppError::FeatureNotSupported { feature_code: code_u16 });
+            return Err(HidppError::FeatureNotSupported {
+                feature_code: code_u16,
+            });
         }
 
         self.feature_cache.insert(code, index);
@@ -138,15 +140,15 @@ impl<T: HidTransport> HidppDevice<T> {
             }
 
             // Match on feature_index and function (high nibble of function_id)
-            if msg.feature_index() == feature_index
-                && (msg.function_id() >> 4) == function
-            {
+            if msg.feature_index() == feature_index && (msg.function_id() >> 4) == function {
                 return Ok(msg);
             }
             // Otherwise it's an unrelated report; skip and retry
         }
 
-        Err(HidppError::Timeout { timeout_ms: READ_TIMEOUT_MS })
+        Err(HidppError::Timeout {
+            timeout_ms: READ_TIMEOUT_MS,
+        })
     }
 }
 
@@ -175,11 +177,15 @@ mod tests {
         transport.push_response(make_short_response(0x00, 0x00, [0x03, 0x00, 0x00, 0x00]));
 
         let device = HidppDevice::new(transport);
-        let idx = device.get_feature_index(FeatureCode::AdjustableDpi).unwrap();
+        let idx = device
+            .get_feature_index(FeatureCode::AdjustableDpi)
+            .unwrap();
         assert_eq!(idx.0, 0x03);
 
         // Second call should hit cache — no additional response needed
-        let idx2 = device.get_feature_index(FeatureCode::AdjustableDpi).unwrap();
+        let idx2 = device
+            .get_feature_index(FeatureCode::AdjustableDpi)
+            .unwrap();
         assert_eq!(idx2.0, 0x03);
     }
 
@@ -191,6 +197,9 @@ mod tests {
 
         let device = HidppDevice::new(transport);
         let result = device.get_feature_index(FeatureCode::AdjustableDpi);
-        assert!(matches!(result, Err(HidppError::FeatureNotSupported { .. })));
+        assert!(matches!(
+            result,
+            Err(HidppError::FeatureNotSupported { .. })
+        ));
     }
 }

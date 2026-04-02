@@ -59,9 +59,7 @@ pub enum ButtonAction {
 impl OnboardProfiles {
     /// Function 0 — getProfileDescriptors.
     /// Returns (active_profile_index, profile_count).
-    pub fn get_info<T: HidTransport>(
-        device: &HidppDevice<T>,
-    ) -> Result<ProfileInfo, HidppError> {
+    pub fn get_info<T: HidTransport>(device: &HidppDevice<T>) -> Result<ProfileInfo, HidppError> {
         let resp = device.call_feature_short(FeatureCode::OnboardProfiles, 0, [0; 4])?;
         let params = resp.params();
         Ok(ProfileInfo {
@@ -84,9 +82,7 @@ impl OnboardProfiles {
 
     /// Function 2 — getCurrentProfile.
     /// Returns the index of the currently active profile.
-    pub fn get_active_profile<T: HidTransport>(
-        device: &HidppDevice<T>,
-    ) -> Result<u8, HidppError> {
+    pub fn get_active_profile<T: HidTransport>(device: &HidppDevice<T>) -> Result<u8, HidppError> {
         let resp = device.call_feature_short(FeatureCode::OnboardProfiles, 2, [0; 4])?;
         Ok(resp.params()[0])
     }

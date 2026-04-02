@@ -79,10 +79,7 @@ impl Widget for ProfilesPanel<'_> {
                         Style::default().fg(CYAN).add_modifier(Modifier::BOLD),
                     ));
                 } else {
-                    dpi_spans.push(Span::styled(
-                        format!("{}", dpi),
-                        Style::default().fg(DIM),
-                    ));
+                    dpi_spans.push(Span::styled(format!("{}", dpi), Style::default().fg(DIM)));
                 }
             }
             lines.push(Line::from(dpi_spans));

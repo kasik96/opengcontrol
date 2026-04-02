@@ -134,15 +134,16 @@ impl AppState {
     }
 
     pub fn pending_polling(&self) -> Option<u16> {
-        self.snapshot
-            .as_ref()
-            .and_then(|s| s.supported_polling_hz.get(self.pending_polling_idx).copied())
+        self.snapshot.as_ref().and_then(|s| {
+            s.supported_polling_hz
+                .get(self.pending_polling_idx)
+                .copied()
+        })
     }
 
     pub fn dpi_step_right(&mut self) {
         if !self.dpi_values.is_empty() {
-            self.pending_dpi_idx =
-                (self.pending_dpi_idx + 1).min(self.dpi_values.len() - 1);
+            self.pending_dpi_idx = (self.pending_dpi_idx + 1).min(self.dpi_values.len() - 1);
         }
     }
 

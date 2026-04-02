@@ -66,9 +66,12 @@ impl DeviceInfo {
     /// Returns (min_dpi, max_dpi, step, sensor_count) or None if DPI not supported.
     pub fn dpi_info(&self) -> Option<(u16, u16, u16, u8)> {
         match self.dpi_capability() {
-            Some(Capability::AdjustableDpi { min_dpi, max_dpi, step, sensor_count }) => {
-                Some((*min_dpi, *max_dpi, *step, *sensor_count))
-            }
+            Some(Capability::AdjustableDpi {
+                min_dpi,
+                max_dpi,
+                step,
+                sensor_count,
+            }) => Some((*min_dpi, *max_dpi, *step, *sensor_count)),
             _ => None,
         }
     }

@@ -10,12 +10,7 @@ pub struct PollingRate;
 
 /// The four polling rate indices the protocol uses.
 /// These are the values sent on the wire; they map to Hz values as follows:
-const RATE_INDEX_TO_HZ: &[(u8, u16)] = &[
-    (0x01, 1000),
-    (0x02, 500),
-    (0x03, 250),
-    (0x04, 125),
-];
+const RATE_INDEX_TO_HZ: &[(u8, u16)] = &[(0x01, 1000), (0x02, 500), (0x03, 250), (0x04, 125)];
 
 impl PollingRate {
     /// Function 0 — getReportRateList.
@@ -90,7 +85,15 @@ mod tests {
     use crate::HidppDevice;
 
     fn make_short_resp(feature_index: u8, function: u8, params: [u8; 4]) -> Vec<u8> {
-        vec![0x10, 0xFF, feature_index, function << 4, params[0], params[1], params[2]]
+        vec![
+            0x10,
+            0xFF,
+            feature_index,
+            function << 4,
+            params[0],
+            params[1],
+            params[2],
+        ]
     }
 
     #[test]
@@ -114,6 +117,9 @@ mod tests {
 
         let device = HidppDevice::new(transport);
         let result = PollingRate::set_rate_hz(&device, 333, &[125, 250, 500, 1000]);
-        assert!(matches!(result, Err(HidppError::UnsupportedPollingRate { .. })));
+        assert!(matches!(
+            result,
+            Err(HidppError::UnsupportedPollingRate { .. })
+        ));
     }
 }

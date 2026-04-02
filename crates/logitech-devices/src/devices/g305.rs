@@ -14,12 +14,8 @@ static G305_CAPABILITIES: &[Capability] = &[
     Capability::PollingRate {
         supported_rates_hz: G305_POLLING_RATES,
     },
-    Capability::OnboardProfiles {
-        profile_count: 3,
-    },
-    Capability::ButtonRemapping {
-        button_count: 6,
-    },
+    Capability::OnboardProfiles { profile_count: 3 },
+    Capability::ButtonRemapping { button_count: 6 },
 ];
 
 /// Logitech G305 LIGHTSPEED (wireless receiver) — PID 0xC092

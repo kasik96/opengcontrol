@@ -4,8 +4,14 @@ use crate::device_info::DeviceInfo;
 static G403_POLLING_RATES: &[u16] = &[125, 250, 500, 1000];
 
 static G403_RGB_ZONES: &[RgbZone] = &[
-    RgbZone { name: "logo",         zone_id: 0x00 },
-    RgbZone { name: "scroll_wheel", zone_id: 0x01 },
+    RgbZone {
+        name: "logo",
+        zone_id: 0x00,
+    },
+    RgbZone {
+        name: "scroll_wheel",
+        zone_id: 0x01,
+    },
 ];
 
 static G403_CAPABILITIES: &[Capability] = &[
@@ -22,12 +28,8 @@ static G403_CAPABILITIES: &[Capability] = &[
         zone_count: 2,
         zones: G403_RGB_ZONES,
     },
-    Capability::OnboardProfiles {
-        profile_count: 3,
-    },
-    Capability::ButtonRemapping {
-        button_count: 6,
-    },
+    Capability::OnboardProfiles { profile_count: 3 },
+    Capability::ButtonRemapping { button_count: 6 },
 ];
 
 /// Logitech G403 Prodigy (wired) — PID 0xC083

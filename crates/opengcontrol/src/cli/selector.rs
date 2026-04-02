@@ -40,10 +40,7 @@ pub fn select(devices: &[PhysicalDevice]) -> Result<String, String> {
         .map_err(|_| format!("Invalid selection: {trimmed}"))?;
 
     if n < 1 || n > devices.len() {
-        return Err(format!(
-            "Selection {n} out of range (1–{})",
-            devices.len()
-        ));
+        return Err(format!("Selection {n} out of range (1–{})", devices.len()));
     }
 
     Ok(devices[n - 1].path.clone())

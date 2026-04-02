@@ -14,7 +14,11 @@ pub struct DoctorArgs {
 
 pub fn handle_doctor(args: &DoctorArgs) -> Result<(), String> {
     println!();
-    println!("  {}  {}", g_cyan_bold("opengcontrol"), dim("doctor — system diagnostics"));
+    println!(
+        "  {}  {}",
+        g_cyan_bold("opengcontrol"),
+        dim("doctor — system diagnostics")
+    );
     style::print_rule();
     println!();
 
@@ -25,7 +29,11 @@ pub fn handle_doctor(args: &DoctorArgs) -> Result<(), String> {
             api
         }
         Err(e) => {
-            style::print_check(CheckState::Fail, "HID API initialization failed", &e.to_string());
+            style::print_check(
+                CheckState::Fail,
+                "HID API initialization failed",
+                &e.to_string(),
+            );
             println!();
             println!("  {}  Try: {}", dim("hint"), bold("brew install hidapi"));
             println!();
@@ -81,7 +89,11 @@ pub fn handle_doctor(args: &DoctorArgs) -> Result<(), String> {
                 "       {} {}  {}",
                 dim("·"),
                 style::g_cyan(info.name),
-                dim(&format!("({:04X}:{:04X})", hid_info.vendor_id(), hid_info.product_id()))
+                dim(&format!(
+                    "({:04X}:{:04X})",
+                    hid_info.vendor_id(),
+                    hid_info.product_id()
+                ))
             );
         }
     }
@@ -102,7 +114,8 @@ pub fn handle_doctor(args: &DoctorArgs) -> Result<(), String> {
                     );
                     println!();
                     println!("  {}  To fix:", dim("fix"));
-                    println!("       1. Open {} > {} > {}",
+                    println!(
+                        "       1. Open {} > {} > {}",
                         bold("System Settings"),
                         bold("Privacy & Security"),
                         bold("Input Monitoring")
@@ -116,19 +129,19 @@ pub fn handle_doctor(args: &DoctorArgs) -> Result<(), String> {
                         open_input_monitoring_settings();
                     } else {
                         println!();
-                        println!("  {}  Run {} to open System Settings automatically.",
+                        println!(
+                            "  {}  Run {} to open System Settings automatically.",
                             dim("tip"),
                             bold("opengcontrol doctor --open-settings")
                         );
                     }
                 } else {
-                    style::print_check(
-                        CheckState::Fail,
-                        "Could not open device",
-                        &e.to_string(),
-                    );
+                    style::print_check(CheckState::Fail, "Could not open device", &e.to_string());
                     println!();
-                    println!("  {}  Close Logitech G HUB or Logi Options+ and try again.", dim("hint"));
+                    println!(
+                        "  {}  Close Logitech G HUB or Logi Options+ and try again.",
+                        dim("hint")
+                    );
                 }
             }
         }
@@ -151,7 +164,11 @@ pub fn handle_doctor(args: &DoctorArgs) -> Result<(), String> {
             "Conflicting software detected",
             &conflicts.join(", "),
         );
-        println!("  {}  Quit {} before using opengcontrol.", dim("fix"), bold(&conflicts.join(" / ")));
+        println!(
+            "  {}  Quit {} before using opengcontrol.",
+            dim("fix"),
+            bold(&conflicts.join(" / "))
+        );
     }
 
     println!();

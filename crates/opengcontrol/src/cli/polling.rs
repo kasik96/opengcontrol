@@ -40,8 +40,14 @@ pub fn handle_polling(
         PollingCommand::Get => {
             let sp = Spinner::new("Reading polling rate…", output);
             let hz = match PollingRate::get_rate_hz(ctx.device()) {
-                Ok(v) => { sp.clear(); v }
-                Err(e) => { sp.finish_err("Failed to read polling rate"); return Err(e.to_string()); }
+                Ok(v) => {
+                    sp.clear();
+                    v
+                }
+                Err(e) => {
+                    sp.finish_err("Failed to read polling rate");
+                    return Err(e.to_string());
+                }
             };
             match output {
                 OutputFormat::Human => println!(

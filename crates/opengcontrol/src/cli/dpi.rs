@@ -49,8 +49,14 @@ pub fn handle_dpi(
         DpiCommand::Get => {
             let sp = Spinner::new("Reading DPI…", output);
             let dpi = match AdjustableDpi::get_dpi(ctx.device(), 0) {
-                Ok(v) => { sp.clear(); v }
-                Err(e) => { sp.finish_err("Failed to read DPI"); return Err(e.to_string()); }
+                Ok(v) => {
+                    sp.clear();
+                    v
+                }
+                Err(e) => {
+                    sp.finish_err("Failed to read DPI");
+                    return Err(e.to_string());
+                }
             };
             match output {
                 OutputFormat::Human => println!(
@@ -80,7 +86,10 @@ pub fn handle_dpi(
                 )),
                 OutputFormat::Json => {
                     sp.clear();
-                    json::print_json(&DpiResult { dpi: *value, sensor: *sensor });
+                    json::print_json(&DpiResult {
+                        dpi: *value,
+                        sensor: *sensor,
+                    });
                 }
             }
         }
@@ -88,8 +97,14 @@ pub fn handle_dpi(
         DpiCommand::List => {
             let sp = Spinner::new("Querying DPI range…", output);
             let list = match AdjustableDpi::get_dpi_list(ctx.device(), 0) {
-                Ok(l) => { sp.clear(); l }
-                Err(e) => { sp.finish_err("Failed to read DPI list"); return Err(e.to_string()); }
+                Ok(l) => {
+                    sp.clear();
+                    l
+                }
+                Err(e) => {
+                    sp.finish_err("Failed to read DPI list");
+                    return Err(e.to_string());
+                }
             };
             let desc = list.describe();
             match output {

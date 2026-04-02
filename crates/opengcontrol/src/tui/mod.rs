@@ -184,11 +184,13 @@ fn handle_key(
             KeyCode::Enter => {
                 if let Some((btn_idx, action)) = app.take_pending_button_action() {
                     if let Some(snap) = &app.snapshot {
-                        cmd_tx.send(PollerCommand::SetButtonAction {
-                            profile_idx: snap.active_profile,
-                            button_idx: btn_idx as u8,
-                            action,
-                        }).ok();
+                        cmd_tx
+                            .send(PollerCommand::SetButtonAction {
+                                profile_idx: snap.active_profile,
+                                button_idx: btn_idx as u8,
+                                action,
+                            })
+                            .ok();
                         app.refreshing = true;
                     }
                 }
@@ -281,7 +283,9 @@ fn handle_key(
                 }
             }
             Focus::Profiles => {
-                cmd_tx.send(PollerCommand::SwitchProfile(app.pending_profile_idx as u8)).ok();
+                cmd_tx
+                    .send(PollerCommand::SwitchProfile(app.pending_profile_idx as u8))
+                    .ok();
                 app.refreshing = true;
             }
             Focus::Buttons => {
@@ -315,11 +319,7 @@ fn button_assignments(app: &AppState) -> Vec<hidpp_core::features::ButtonAssignm
         .unwrap_or_default()
 }
 
-fn apply_typed_dpi(
-    app: &mut AppState,
-    s: &str,
-    cmd_tx: &mpsc::SyncSender<PollerCommand>,
-) {
+fn apply_typed_dpi(app: &mut AppState, s: &str, cmd_tx: &mpsc::SyncSender<PollerCommand>) {
     let Ok(dpi) = s.parse::<u16>() else {
         app.set_status(format!("✗  Not a number: {s}"), StatusKind::Error);
         return;

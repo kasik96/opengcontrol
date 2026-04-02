@@ -110,16 +110,12 @@ fn action_label(action: &ButtonAction) -> String {
 fn action_style(action: &ButtonAction) -> (Style, bool) {
     match action {
         ButtonAction::MouseButton(_) => (Style::default().fg(DIM), false),
-        ButtonAction::DpiCycleUp | ButtonAction::DpiCycleDown => {
-            (Style::default().fg(AMBER).add_modifier(Modifier::BOLD), true)
-        }
-        ButtonAction::ProfileCycle => {
-            (Style::default().fg(AMBER), false)
-        }
-        ButtonAction::KeyCombo { .. } => (Style::default().fg(DIM), false),
-        ButtonAction::Disabled => (
-            Style::default().fg(DIM).add_modifier(Modifier::DIM),
-            false,
+        ButtonAction::DpiCycleUp | ButtonAction::DpiCycleDown => (
+            Style::default().fg(AMBER).add_modifier(Modifier::BOLD),
+            true,
         ),
+        ButtonAction::ProfileCycle => (Style::default().fg(AMBER), false),
+        ButtonAction::KeyCombo { .. } => (Style::default().fg(DIM), false),
+        ButtonAction::Disabled => (Style::default().fg(DIM).add_modifier(Modifier::DIM), false),
     }
 }

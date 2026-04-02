@@ -4,14 +4,14 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u16)]
 pub enum FeatureCode {
-    IRoot           = 0x0000,
-    IFeatureSet     = 0x0001,
-    IFirmwareInfo   = 0x0003,
-    DeviceName      = 0x0005,
-    AdjustableDpi   = 0x2201,
-    PollingRate     = 0x8060,
-    RgbEffects      = 0x8070,
-    PerKeyLighting  = 0x8071,
+    IRoot = 0x0000,
+    IFeatureSet = 0x0001,
+    IFirmwareInfo = 0x0003,
+    DeviceName = 0x0005,
+    AdjustableDpi = 0x2201,
+    PollingRate = 0x8060,
+    RgbEffects = 0x8070,
+    PerKeyLighting = 0x8071,
     OnboardProfiles = 0x8110,
 }
 

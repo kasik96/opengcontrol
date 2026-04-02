@@ -25,4 +25,4 @@ pub mod transport;
 
 pub use device::HidppDevice;
 pub use protocol::{FeatureCode, FeatureIndex, HidppError};
-pub use transport::{HidapiTransport, HidTransport, MockTransport};
+pub use transport::{HidTransport, HidapiTransport, MockTransport};

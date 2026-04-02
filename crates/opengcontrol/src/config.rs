@@ -36,8 +36,8 @@ impl Config {
         if !path.exists() {
             return Ok(Self::default());
         }
-        let contents = std::fs::read_to_string(&path)
-            .map_err(|e| format!("Cannot read config: {e}"))?;
+        let contents =
+            std::fs::read_to_string(&path).map_err(|e| format!("Cannot read config: {e}"))?;
         toml::from_str(&contents).map_err(|e| format!("Config parse error: {e}"))
     }
 

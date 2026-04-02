@@ -56,17 +56,12 @@ impl DeviceContext {
             supported
                 .into_iter()
                 .find(|(_, h)| h.path().to_string_lossy() == path)
-                .ok_or_else(|| {
-                    HidppError::Transport(format!("No device found at path: {path}"))
-                })?
+                .ok_or_else(|| HidppError::Transport(format!("No device found at path: {path}")))?
         } else {
             supported.into_iter().next().unwrap()
         };
 
-        let spinner = Spinner::new(
-            format!("Connecting to {}…", device_info.name),
-            output,
-        );
+        let spinner = Spinner::new(format!("Connecting to {}…", device_info.name), output);
 
         // Detect wireless Unifying receiver interface (usage_page=0xFF00).
         // These require numbered HID reports and device_id=0x01 (first receiver slot).
@@ -85,7 +80,10 @@ impl DeviceContext {
                 } else {
                     HidppDevice::new(transport)
                 };
-                Ok(Self { device, device_info })
+                Ok(Self {
+                    device,
+                    device_info,
+                })
             }
             Err(e) => {
                 let err = classify_open_error(e);

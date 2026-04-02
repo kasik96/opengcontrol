@@ -60,7 +60,10 @@ impl HidppMessage {
                 expected: SHORT_REPORT_ID as usize,
                 actual: id as usize,
             }),
-            None => Err(HidppError::InvalidResponse { expected: 7, actual: 0 }),
+            None => Err(HidppError::InvalidResponse {
+                expected: 7,
+                actual: 0,
+            }),
         }
     }
 }
@@ -112,7 +115,10 @@ impl ShortMessage {
 
     pub fn from_bytes(buf: &[u8]) -> Result<Self, HidppError> {
         if buf.len() < 7 {
-            return Err(HidppError::InvalidResponse { expected: 7, actual: buf.len() });
+            return Err(HidppError::InvalidResponse {
+                expected: 7,
+                actual: buf.len(),
+            });
         }
         // buf[0] is report ID (0x10), skip it
         Ok(Self {
@@ -166,7 +172,10 @@ impl LongMessage {
 
     pub fn from_bytes(buf: &[u8]) -> Result<Self, HidppError> {
         if buf.len() < 20 {
-            return Err(HidppError::InvalidResponse { expected: 20, actual: buf.len() });
+            return Err(HidppError::InvalidResponse {
+                expected: 20,
+                actual: buf.len(),
+            });
         }
         let mut params = [0u8; 16];
         params.copy_from_slice(&buf[4..20]);

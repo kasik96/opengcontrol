@@ -27,15 +27,11 @@ impl AdjustableDpi {
         sensor_idx: u8,
     ) -> Result<DpiList, HidppError> {
         // This feature uses a LONG response (20 bytes) to return multiple DPI values
-        let resp = device.call_feature_long(
-            FeatureCode::AdjustableDpi,
-            1,
-            {
-                let mut p = [0u8; 16];
-                p[0] = sensor_idx;
-                p
-            },
-        )?;
+        let resp = device.call_feature_long(FeatureCode::AdjustableDpi, 1, {
+            let mut p = [0u8; 16];
+            p[0] = sensor_idx;
+            p
+        })?;
 
         let params = resp.params();
         // Skip sensor_idx byte (params[0]), then read pairs of u16
@@ -75,11 +71,7 @@ impl AdjustableDpi {
         dpi: u16,
     ) -> Result<(), HidppError> {
         let [hi, lo] = dpi.to_be_bytes();
-        device.call_feature_short(
-            FeatureCode::AdjustableDpi,
-            3,
-            [sensor_idx, hi, lo, 0x00],
-        )?;
+        device.call_feature_short(FeatureCode::AdjustableDpi, 3, [sensor_idx, hi, lo, 0x00])?;
         Ok(())
     }
 }
@@ -156,8 +148,13 @@ mod tests {
 
     fn make_short_resp(feature_index: u8, function: u8, params: [u8; 4]) -> Vec<u8> {
         vec![
-            0x10, 0xFF, feature_index, function << 4,
-            params[0], params[1], params[2],
+            0x10,
+            0xFF,
+            feature_index,
+            function << 4,
+            params[0],
+            params[1],
+            params[2],
         ]
     }
 
