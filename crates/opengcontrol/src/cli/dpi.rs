@@ -63,7 +63,7 @@ pub fn handle_dpi(
         }
 
         DpiCommand::Set { value, sensor } => {
-            ctx.device_info().validate_dpi(*value).map_err(|e| e)?;
+            ctx.device_info().validate_dpi(*value)?;
 
             let sp = Spinner::new(format!("Setting DPI to {value}…"), output);
             match AdjustableDpi::set_dpi(ctx.device(), *sensor, *value) {

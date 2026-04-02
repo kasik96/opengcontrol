@@ -45,7 +45,7 @@ pub fn run_with_selection(
             return Ok(());
         };
         let ctx = DeviceContext::open(Some(&path), output)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| io::Error::other(e.to_string()))?;
         run_main(terminal, ctx)
     })
 }

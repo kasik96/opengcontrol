@@ -80,7 +80,7 @@ impl Widget for ButtonsPanel<'_> {
             current_row.push(sep);
 
             if current_row.len() >= 12 {
-                rows.push(Line::from(current_row.drain(..).collect::<Vec<_>>()));
+                rows.push(Line::from(std::mem::take(&mut current_row)));
             }
         }
         if !current_row.is_empty() {

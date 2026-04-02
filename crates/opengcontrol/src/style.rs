@@ -1,10 +1,10 @@
-/// Visual design for opengcontrol.
-///
-/// Color palette inspired by Logitech G branding:
-///   Primary:  #00B4FF  — Logitech G cyan/blue
-///   Success:  #00DC50  — neon green
-///   Warning:  #FFB800  — amber
-///   Error:    #FF3B3B  — red
+//! Visual design for opengcontrol.
+//!
+//! Color palette inspired by Logitech G branding:
+//!   Primary:  #00B4FF  — Logitech G cyan/blue
+//!   Success:  #00DC50  — neon green
+//!   Warning:  #FFB800  — amber
+//!   Error:    #FF3B3B  — red
 
 use owo_colors::{DynColors, OwoColorize, Style};
 use owo_colors::Stream::Stdout;
