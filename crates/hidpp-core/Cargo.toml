@@ -1,0 +1,14 @@
+[package]
+name = "hidpp-core"
+version = "0.1.0"
+edition = "2021"
+description = "HID++ 2.0 protocol implementation for Logitech devices"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+hidapi = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+# MockTransport lives in src/transport/mock.rs, no extra deps needed

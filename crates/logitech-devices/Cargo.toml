@@ -1,0 +1,11 @@
+[package]
+name = "logitech-devices"
+version = "0.1.0"
+edition = "2021"
+description = "Device registry for Logitech G-series mice"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+hidpp-core = { path = "../hidpp-core" }
+hidapi = { workspace = true }
+serde = { workspace = true }

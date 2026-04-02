@@ -1,0 +1,25 @@
+[package]
+name = "opengcontrol"
+version = "0.1.0"
+edition = "2021"
+description = "Open-source CLI alternative to Logitech G software for macOS"
+license = "MIT OR Apache-2.0"
+
+[[bin]]
+name = "opengcontrol"
+path = "src/main.rs"
+
+[dependencies]
+hidpp-core = { path = "../hidpp-core" }
+logitech-devices = { path = "../logitech-devices" }
+hidapi = { workspace = true }
+clap = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+toml = { workspace = true }
+serde_json = { workspace = true }
+dirs = { workspace = true }
+indicatif = "0.17"
+owo-colors = { version = "4", features = ["supports-colors"] }
+ratatui = "0.29"
+crossterm = "0.28"
