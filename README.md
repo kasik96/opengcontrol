@@ -275,7 +275,7 @@ For protocol questions, the best references are [libratbag](https://github.com/l
 
 ## License
 
-MIT OR Apache-2.0
+Apache License 2.0
 
 ---
 
