@@ -2,6 +2,9 @@
 
 Open-source CLI alternative to Logitech G software on macOS.
 
+<img width="978" height="714" alt="image" src="https://github.com/user-attachments/assets/0a2f24ef-da88-4bbd-965f-f7d80054a4d5" />
+
+
 Configure your Logitech G-series mouse — DPI, polling rate, onboard profiles — without installing Logitech G HUB or Logi Options+. Settings are written directly to the mouse's onboard flash memory, so they persist across USB reconnects and work on any computer.
 
 > **Status:** Early development. Contributions welcome.
