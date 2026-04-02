@@ -83,7 +83,7 @@ impl DeviceInfo {
                         self.name
                     ));
                 }
-                if step > 1 && (dpi - min) % step != 0 {
+                if step > 1 && !(dpi - min).is_multiple_of(step) {
                     return Err(format!(
                         "DPI {dpi} is not a valid step. Valid values: {min}–{max} in steps of {step}"
                     ));
