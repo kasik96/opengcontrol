@@ -8,11 +8,12 @@ use ratatui::{
 
 use hidpp_core::features::OnboardProfile;
 
-use crate::tui::{CYAN, DIM};
+use crate::tui::{AMBER, CYAN, DIM};
 
 pub struct ProfilesPanel<'a> {
     pub focused: bool,
     pub active_profile: u8,
+    pub pending_profile: usize,
     pub profiles: &'a [Option<OnboardProfile>],
 }
 
@@ -40,21 +41,32 @@ impl Widget for ProfilesPanel<'_> {
         }
 
         let total = self.profiles.len();
+        let pending = self.pending_profile;
+        let is_pending = pending != self.active_profile as usize;
         let mut lines: Vec<Line> = Vec::new();
 
-        // Header: active profile indicator
+        // Header: navigation indicator
+        let num_style = if is_pending {
+            Style::default().fg(AMBER).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(CYAN).add_modifier(Modifier::BOLD)
+        };
         let header = Line::from(vec![
             Span::styled("Active  ", Style::default().fg(DIM)),
-            Span::styled(
-                format!("{}", self.active_profile + 1),
-                Style::default().fg(CYAN).add_modifier(Modifier::BOLD),
-            ),
+            Span::styled("← ", Style::default().fg(DIM)),
+            Span::styled(format!("{}", pending + 1), num_style),
             Span::styled(format!(" / {total}"), Style::default().fg(DIM)),
+            Span::styled(" →", Style::default().fg(DIM)),
+            if is_pending {
+                Span::styled("  ↵ to switch", Style::default().fg(AMBER))
+            } else {
+                Span::raw("")
+            },
         ]);
         lines.push(header);
 
-        // Show info for the active profile
-        if let Some(Some(profile)) = self.profiles.get(self.active_profile as usize) {
+        // Show info for the pending profile
+        if let Some(Some(profile)) = self.profiles.get(pending) {
             // DPI slots
             let mut dpi_spans: Vec<Span> = vec![Span::styled("Slots  ", Style::default().fg(DIM))];
             for (i, &dpi) in profile.dpi_slots.iter().enumerate() {

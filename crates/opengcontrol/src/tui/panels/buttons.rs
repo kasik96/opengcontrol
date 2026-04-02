@@ -13,6 +13,8 @@ use crate::tui::{AMBER, CYAN, DIM};
 pub struct ButtonsPanel<'a> {
     pub focused: bool,
     pub assignments: &'a [ButtonAssignment],
+    pub selected: usize,
+    pub pending_action: Option<&'a ButtonAction>,
 }
 
 impl Widget for ButtonsPanel<'_> {
@@ -38,18 +40,35 @@ impl Widget for ButtonsPanel<'_> {
             return;
         }
 
+        let editing = self.pending_action.is_some();
+
         // Split into rows of 3
         let mut rows: Vec<Line> = Vec::new();
         let mut current_row: Vec<Span> = Vec::new();
 
         for assignment in self.assignments {
-            let label = action_label(&assignment.action);
-            let (label_style, special) = action_style(&assignment.action);
+            let is_selected = assignment.button_index as usize == self.selected;
 
-            let idx_span = Span::styled(
-                format!("[{}]", assignment.button_index + 1),
-                Style::default().fg(CYAN).add_modifier(Modifier::DIM),
-            );
+            // When editing the selected button, show pending action label
+            let (label, label_style, special) = if is_selected && editing {
+                let pending = self.pending_action.unwrap();
+                let lbl = action_label(pending);
+                let (sty, sp) = action_style(pending);
+                let sty = sty.add_modifier(Modifier::BOLD);
+                (lbl, sty, sp)
+            } else {
+                let lbl = action_label(&assignment.action);
+                let (sty, sp) = action_style(&assignment.action);
+                (lbl, sty, sp)
+            };
+
+            let idx_style = if is_selected {
+                Style::default().fg(CYAN).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(CYAN).add_modifier(Modifier::DIM)
+            };
+
+            let idx_span = Span::styled(format!("[{}]", assignment.button_index + 1), idx_style);
             let label_span = Span::styled(label, label_style);
             let sep = Span::styled("   ", Style::default());
 

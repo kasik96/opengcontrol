@@ -92,6 +92,7 @@ pub fn render(f: &mut Frame, app: &AppState) {
             ProfilesPanel {
                 focused: app.focus == Focus::Profiles,
                 active_profile: snap.active_profile,
+                pending_profile: app.pending_profile_idx,
                 profiles: &snap.profiles,
             },
             body[1],
@@ -108,6 +109,8 @@ pub fn render(f: &mut Frame, app: &AppState) {
             ButtonsPanel {
                 focused: app.focus == Focus::Buttons,
                 assignments,
+                selected: app.selected_button,
+                pending_action: app.pending_button_action.as_ref(),
             },
             body[2],
         );
@@ -123,6 +126,8 @@ pub fn render(f: &mut Frame, app: &AppState) {
     f.render_widget(
         StatusBar {
             msg: app.status_msg.as_ref(),
+            focus: app.focus,
+            button_editing: app.pending_button_action.is_some(),
         },
         outer[2],
     );

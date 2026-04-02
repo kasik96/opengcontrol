@@ -7,10 +7,12 @@ use ratatui::{
 };
 
 use crate::tui::{DIM, GREEN, RED};
-use crate::tui::app::StatusKind;
+use crate::tui::app::{Focus, StatusKind};
 
 pub struct StatusBar<'a> {
     pub msg: Option<&'a (String, StatusKind, std::time::Instant)>,
+    pub focus: Focus,
+    pub button_editing: bool,
 }
 
 impl Widget for StatusBar<'_> {
@@ -22,20 +24,48 @@ impl Widget for StatusBar<'_> {
             };
             Line::from(Span::styled(format!("  {text}"), style))
         } else {
-            Line::from(vec![
-                Span::styled(" Tab", Style::default().fg(DIM).add_modifier(Modifier::BOLD)),
-                Span::styled("/↑↓ Focus   ", Style::default().fg(DIM)),
-                Span::styled("←→", Style::default().fg(DIM).add_modifier(Modifier::BOLD)),
-                Span::styled(" Change   ", Style::default().fg(DIM)),
-                Span::styled("↵", Style::default().fg(DIM).add_modifier(Modifier::BOLD)),
-                Span::styled(" Apply   ", Style::default().fg(DIM)),
-                Span::styled("r", Style::default().fg(DIM).add_modifier(Modifier::BOLD)),
-                Span::styled(" Refresh   ", Style::default().fg(DIM)),
-                Span::styled("q", Style::default().fg(DIM).add_modifier(Modifier::BOLD)),
-                Span::styled(" Quit", Style::default().fg(DIM)),
-            ])
+            self.hint_line()
         };
 
         Paragraph::new(line).render(area, buf);
+    }
+}
+
+impl StatusBar<'_> {
+    fn hint_line(&self) -> Line<'static> {
+        let key = |s: &'static str| Span::styled(s, Style::default().fg(DIM).add_modifier(Modifier::BOLD));
+        let txt = |s: &'static str| Span::styled(s, Style::default().fg(DIM));
+
+        match (self.focus, self.button_editing) {
+            (Focus::Buttons, true) => Line::from(vec![
+                key("←→"), txt(" Change action   "),
+                key("↵"), txt(" Apply   "),
+                key("Esc"), txt(" Cancel   "),
+                key("Tab"), txt("/↑↓ Focus   "),
+                key("r"), txt(" Refresh   "),
+                key("q"), txt(" Quit"),
+            ]),
+            (Focus::Buttons, false) => Line::from(vec![
+                key("←→"), txt(" Select button   "),
+                key("↵"), txt(" Edit   "),
+                key("Tab"), txt("/↑↓ Focus   "),
+                key("r"), txt(" Refresh   "),
+                key("q"), txt(" Quit"),
+            ]),
+            (Focus::Profiles, _) => Line::from(vec![
+                key("←→"), txt(" Select profile   "),
+                key("↵"), txt(" Switch   "),
+                key("Tab"), txt("/↑↓ Focus   "),
+                key("r"), txt(" Refresh   "),
+                key("q"), txt(" Quit"),
+            ]),
+            _ => Line::from(vec![
+                key(" Tab"), txt("/↑↓ Focus   "),
+                key("←→"), txt(" Change   "),
+                key("↵"), txt(" Apply   "),
+                key("r"), txt(" Refresh   "),
+                key("q"), txt(" Quit"),
+            ]),
+        }
     }
 }

@@ -1,7 +1,7 @@
 use std::sync::mpsc;
 use std::time::Duration;
 
-use hidpp_core::features::{AdjustableDpi, OnboardProfiles, PollingRate};
+use hidpp_core::features::{AdjustableDpi, ButtonAction, OnboardProfiles, PollingRate};
 use hidpp_core::HidppError;
 
 use crate::context::DeviceContext;
@@ -13,6 +13,8 @@ pub enum PollerCommand {
     Refresh,
     SetDpi(u16),
     SetPolling(u16),
+    SwitchProfile(u8),
+    SetButtonAction { profile_idx: u8, button_idx: u8, action: ButtonAction },
     Quit,
 }
 
@@ -51,6 +53,17 @@ pub fn spawn_poller(
                     tx.send(AppEvent::WriteResult(result)).ok();
                     tx.send(AppEvent::DeviceData(read_snapshot(&ctx))).ok();
                 }
+                Ok(PollerCommand::SwitchProfile(idx)) => {
+                    let result = OnboardProfiles::set_active_profile(ctx.device(), idx)
+                        .map_err(|e| e.to_string());
+                    tx.send(AppEvent::WriteResult(result)).ok();
+                    tx.send(AppEvent::DeviceData(read_snapshot(&ctx))).ok();
+                }
+                Ok(PollerCommand::SetButtonAction { profile_idx, button_idx, action }) => {
+                    let result = set_button_action(&ctx, profile_idx, button_idx, action);
+                    tx.send(AppEvent::WriteResult(result)).ok();
+                    tx.send(AppEvent::DeviceData(read_snapshot(&ctx))).ok();
+                }
                 Ok(PollerCommand::Quit) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
                 Err(mpsc::RecvTimeoutError::Timeout) => {
                     tx.send(AppEvent::DeviceData(read_snapshot(&ctx))).ok();
@@ -60,6 +73,21 @@ pub fn spawn_poller(
     });
 
     cmd_tx
+}
+
+fn set_button_action(
+    ctx: &DeviceContext,
+    profile_idx: u8,
+    button_idx: u8,
+    action: ButtonAction,
+) -> Result<(), String> {
+    let mut profile = OnboardProfiles::read_profile(ctx.device(), profile_idx)
+        .map_err(|e| e.to_string())?;
+    if let Some(a) = profile.button_assignments.iter_mut().find(|a| a.button_index == button_idx) {
+        a.action = action;
+    }
+    OnboardProfiles::write_profile(ctx.device(), &profile)
+        .map_err(|e| e.to_string())
 }
 
 /// Update the active DPI slot in the active onboard profile and write it to flash.

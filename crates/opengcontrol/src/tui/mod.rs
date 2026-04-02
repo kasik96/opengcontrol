@@ -146,7 +146,12 @@ fn handle_device_event(app: &mut AppState, ev: AppEvent) {
                     let hz = app.pending_polling().unwrap_or(0);
                     format!("✓  Polling rate set to {hz} Hz")
                 }
-                _ => "✓  Done".to_string(),
+                Focus::Profiles => {
+                    format!("✓  Profile {} activated", app.pending_profile_idx + 1)
+                }
+                Focus::Buttons => {
+                    format!("✓  Button {} reassigned", app.selected_button + 1)
+                }
             };
             app.set_status(msg, StatusKind::Ok);
         }
@@ -161,6 +166,38 @@ fn handle_key(
     key: crossterm::event::KeyEvent,
     cmd_tx: &mpsc::SyncSender<PollerCommand>,
 ) {
+    // --- Button edit mode (must intercept before global Esc handling) ---
+    if app.focus == Focus::Buttons && app.pending_button_action.is_some() {
+        match key.code {
+            KeyCode::Esc => {
+                app.button_edit_cancel();
+                return;
+            }
+            KeyCode::Left => {
+                app.button_action_prev();
+                return;
+            }
+            KeyCode::Right => {
+                app.button_action_next();
+                return;
+            }
+            KeyCode::Enter => {
+                if let Some((btn_idx, action)) = app.take_pending_button_action() {
+                    if let Some(snap) = &app.snapshot {
+                        cmd_tx.send(PollerCommand::SetButtonAction {
+                            profile_idx: snap.active_profile,
+                            button_idx: btn_idx as u8,
+                            action,
+                        }).ok();
+                        app.refreshing = true;
+                    }
+                }
+                return;
+            }
+            _ => return,
+        }
+    }
+
     // --- DPI text input mode ---
     if app.focus == Focus::Dpi && app.dpi_input.is_some() {
         match key.code {
@@ -213,12 +250,20 @@ fn handle_key(
         KeyCode::Left => match app.focus {
             Focus::Dpi => app.dpi_step_left(),
             Focus::Polling => app.polling_step_left(),
-            _ => {}
+            Focus::Profiles => app.profile_step_left(),
+            Focus::Buttons => {
+                let assignments = button_assignments(app);
+                app.button_select_prev(&assignments);
+            }
         },
         KeyCode::Right => match app.focus {
             Focus::Dpi => app.dpi_step_right(),
             Focus::Polling => app.polling_step_right(),
-            _ => {}
+            Focus::Profiles => app.profile_step_right(),
+            Focus::Buttons => {
+                let assignments = button_assignments(app);
+                app.button_select_next(&assignments);
+            }
         },
 
         // Enter: apply pending value
@@ -235,7 +280,14 @@ fn handle_key(
                     app.refreshing = true;
                 }
             }
-            _ => {}
+            Focus::Profiles => {
+                cmd_tx.send(PollerCommand::SwitchProfile(app.pending_profile_idx as u8)).ok();
+                app.refreshing = true;
+            }
+            Focus::Buttons => {
+                let assignments = button_assignments(app);
+                app.button_edit_start(&assignments);
+            }
         },
 
         // Digit keys on DPI panel: start text input mode
@@ -251,6 +303,16 @@ fn handle_key(
 
         _ => {}
     }
+}
+
+/// Borrow button assignments from the current active profile snapshot.
+fn button_assignments(app: &AppState) -> Vec<hidpp_core::features::ButtonAssignment> {
+    app.snapshot
+        .as_ref()
+        .and_then(|s| s.profiles.get(s.active_profile as usize))
+        .and_then(|p| p.as_ref())
+        .map(|p| p.button_assignments.clone())
+        .unwrap_or_default()
 }
 
 fn apply_typed_dpi(

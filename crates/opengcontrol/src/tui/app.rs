@@ -1,6 +1,7 @@
 use std::time::Instant;
 
 use hidpp_core::features::dpi::DpiList;
+use hidpp_core::features::{ButtonAction, ButtonAssignment};
 
 use super::device_state::DeviceSnapshot;
 
@@ -60,6 +61,14 @@ pub struct AppState {
 
     /// When Some, the user is typing a custom DPI value (text input mode).
     pub dpi_input: Option<String>,
+
+    /// Index of the profile the user has navigated to (pending selection).
+    pub pending_profile_idx: usize,
+
+    /// Which button is highlighted in the Buttons panel (0-based).
+    pub selected_button: usize,
+    /// When Some, we are in button-edit mode and this is the pending action.
+    pub pending_button_action: Option<ButtonAction>,
 }
 
 impl AppState {
@@ -77,6 +86,9 @@ impl AppState {
             refreshing: true,
             should_quit: false,
             dpi_input: None,
+            pending_profile_idx: 0,
+            selected_button: 0,
+            pending_button_action: None,
         }
     }
 
@@ -110,6 +122,8 @@ impl AppState {
             .iter()
             .position(|&v| v == snap.current_polling_hz)
             .unwrap_or(0);
+
+        self.pending_profile_idx = snap.active_profile as usize;
 
         self.snapshot = Some(snap);
         self.refreshing = false;
@@ -188,5 +202,95 @@ impl AppState {
                 self.status_msg = None;
             }
         }
+    }
+
+    // --- Profile navigation ---
+
+    pub fn profile_step_left(&mut self) {
+        if self.pending_profile_idx > 0 {
+            self.pending_profile_idx -= 1;
+        }
+    }
+
+    pub fn profile_step_right(&mut self) {
+        let max = self
+            .snapshot
+            .as_ref()
+            .map(|s| s.profiles.len().saturating_sub(1))
+            .unwrap_or(0);
+        self.pending_profile_idx = (self.pending_profile_idx + 1).min(max);
+    }
+
+    // --- Button navigation and editing ---
+
+    pub fn button_select_prev(&mut self, assignments: &[ButtonAssignment]) {
+        if assignments.is_empty() {
+            return;
+        }
+        if self.selected_button == 0 {
+            self.selected_button = assignments.len() - 1;
+        } else {
+            self.selected_button -= 1;
+        }
+    }
+
+    pub fn button_select_next(&mut self, assignments: &[ButtonAssignment]) {
+        if assignments.is_empty() {
+            return;
+        }
+        self.selected_button = (self.selected_button + 1) % assignments.len();
+    }
+
+    pub fn button_edit_start(&mut self, assignments: &[ButtonAssignment]) {
+        if let Some(a) = assignments.get(self.selected_button) {
+            self.pending_button_action = Some(a.action.clone());
+        }
+    }
+
+    pub fn button_action_next(&mut self) {
+        if let Some(action) = &self.pending_button_action {
+            self.pending_button_action = Some(cycle_action_next(action));
+        }
+    }
+
+    pub fn button_action_prev(&mut self) {
+        if let Some(action) = &self.pending_button_action {
+            self.pending_button_action = Some(cycle_action_prev(action));
+        }
+    }
+
+    pub fn button_edit_cancel(&mut self) {
+        self.pending_button_action = None;
+    }
+
+    /// Consume pending button action and return (button_index, action).
+    pub fn take_pending_button_action(&mut self) -> Option<(usize, ButtonAction)> {
+        self.pending_button_action
+            .take()
+            .map(|a| (self.selected_button, a))
+    }
+}
+
+fn cycle_action_next(action: &ButtonAction) -> ButtonAction {
+    match action {
+        ButtonAction::MouseButton(n) if *n < 5 => ButtonAction::MouseButton(n + 1),
+        ButtonAction::MouseButton(_) => ButtonAction::DpiCycleUp,
+        ButtonAction::DpiCycleUp => ButtonAction::DpiCycleDown,
+        ButtonAction::DpiCycleDown => ButtonAction::ProfileCycle,
+        ButtonAction::ProfileCycle => ButtonAction::Disabled,
+        ButtonAction::Disabled => ButtonAction::MouseButton(1),
+        ButtonAction::KeyCombo { .. } => ButtonAction::MouseButton(1),
+    }
+}
+
+fn cycle_action_prev(action: &ButtonAction) -> ButtonAction {
+    match action {
+        ButtonAction::MouseButton(1) => ButtonAction::Disabled,
+        ButtonAction::MouseButton(n) => ButtonAction::MouseButton(n - 1),
+        ButtonAction::DpiCycleUp => ButtonAction::MouseButton(5),
+        ButtonAction::DpiCycleDown => ButtonAction::DpiCycleUp,
+        ButtonAction::ProfileCycle => ButtonAction::DpiCycleDown,
+        ButtonAction::Disabled => ButtonAction::ProfileCycle,
+        ButtonAction::KeyCombo { .. } => ButtonAction::Disabled,
     }
 }
