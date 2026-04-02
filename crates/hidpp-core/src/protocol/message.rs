@@ -71,8 +71,8 @@ impl HidppMessage {
 /// A 7-byte SHORT HID++ message.
 ///
 /// Wire format: `[0x10, device_id, feature_index, function_id, p0, p1, p2, p3]`
-/// Note: hidapi prepends a 0x00 report ID byte on macOS for reports not using
-/// report IDs at the USB layer, but the HID++ report ID *is* the first payload byte.
+/// Note: hidapi requires a 0x00 report ID byte prefix for devices not using numbered
+/// reports at the USB layer. The HID++ report ID *is* the first payload byte.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ShortMessage {
     pub device_id: u8,
@@ -107,7 +107,7 @@ impl ShortMessage {
         ]
     }
 
-    /// Buffer to send via hidapi write() — prepend 0x00 for macOS IOKit.
+    /// Buffer to send via hidapi write() — prepend 0x00 report ID (required by hidapi on all platforms).
     pub fn to_write_buf(&self) -> [u8; 8] {
         let b = self.to_bytes();
         [0x00, b[0], b[1], b[2], b[3], b[4], b[5], b[6]]
@@ -161,7 +161,7 @@ impl LongMessage {
         buf
     }
 
-    /// Buffer to send via hidapi write() — prepend 0x00 for macOS IOKit.
+    /// Buffer to send via hidapi write() — prepend 0x00 report ID (required by hidapi on all platforms).
     pub fn to_write_buf(&self) -> [u8; 21] {
         let b = self.to_bytes();
         let mut buf = [0u8; 21];

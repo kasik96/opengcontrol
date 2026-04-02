@@ -7,7 +7,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-hidapi = { version = "2.6", features = ["macos-shared-device"] }
+hidapi = { version = "2.6" }
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 clap = { version = "4", features = ["derive", "color"] }

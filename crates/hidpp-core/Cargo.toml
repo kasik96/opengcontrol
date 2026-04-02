@@ -10,5 +10,8 @@ hidapi = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+hidapi = { workspace = true, features = ["macos-shared-device"] }
+
 [dev-dependencies]
 # MockTransport lives in src/transport/mock.rs, no extra deps needed

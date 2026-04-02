@@ -12,7 +12,7 @@ pub enum HidppError {
     #[error("Cannot open HID device: {0}")]
     Transport(String),
 
-    #[error("Permission denied accessing HID device.\n\nTo fix:\n  1. Open System Settings > Privacy & Security > Input Monitoring\n  2. Add opengcontrol to the list\n\nOr run: opengcontrol doctor")]
+    #[error("Permission denied accessing HID device. Run 'opengcontrol doctor' for help.")]
     PermissionDenied,
 
     // Protocol

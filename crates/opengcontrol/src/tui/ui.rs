@@ -32,9 +32,9 @@ pub fn render(f: &mut Frame, app: &AppState) {
     let outer = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),  // header
-            Constraint::Min(0),     // body
-            Constraint::Length(1),  // statusbar
+            Constraint::Length(3), // header
+            Constraint::Min(0),    // body
+            Constraint::Length(1), // statusbar
         ])
         .split(area);
 
@@ -53,9 +53,9 @@ pub fn render(f: &mut Frame, app: &AppState) {
     let body = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(7),  // DPI + Polling side-by-side
-            Constraint::Length(6),  // Profiles
-            Constraint::Min(0),     // Buttons (takes remaining)
+            Constraint::Length(7), // DPI + Polling side-by-side
+            Constraint::Length(6), // Profiles
+            Constraint::Min(0),    // Buttons (takes remaining)
         ])
         .split(outer[1]);
 

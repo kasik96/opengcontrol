@@ -49,11 +49,7 @@ pub fn run(
     }
 }
 
-fn render(
-    f: &mut ratatui::Frame,
-    devices: &[PhysicalDevice],
-    state: &mut ListState,
-) {
+fn render(f: &mut ratatui::Frame, devices: &[PhysicalDevice], state: &mut ListState) {
     let area = f.area();
 
     let outer = Layout::default()
@@ -83,9 +79,7 @@ fn render(
                 Span::raw("  "),
                 Span::styled(
                     format!("{:<30}", d.name),
-                    Style::default()
-                        .fg(CYAN)
-                        .add_modifier(Modifier::BOLD),
+                    Style::default().fg(CYAN).add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
                     format!("{:04X}:{:04X}", d.vid, d.pid),
@@ -105,11 +99,7 @@ fn render(
                     Style::default().fg(CYAN).add_modifier(Modifier::BOLD),
                 )),
         )
-        .highlight_style(
-            Style::default()
-                .fg(AMBER)
-                .add_modifier(Modifier::BOLD),
-        )
+        .highlight_style(Style::default().fg(AMBER).add_modifier(Modifier::BOLD))
         .highlight_symbol("► ");
 
     f.render_stateful_widget(list, panel, state);

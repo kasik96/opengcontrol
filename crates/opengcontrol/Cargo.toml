@@ -2,7 +2,7 @@
 name = "opengcontrol"
 version = "0.1.0"
 edition = "2021"
-description = "Open-source CLI alternative to Logitech G software for macOS"
+description = "Open-source CLI for Logitech G mice"
 license = "MIT OR Apache-2.0"
 
 [[bin]]
@@ -23,3 +23,6 @@ indicatif = "0.17"
 owo-colors = { version = "4", features = ["supports-colors"] }
 ratatui = "0.29"
 crossterm = "0.28"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+hidapi = { workspace = true, features = ["macos-shared-device"] }

@@ -9,3 +9,6 @@ license = "MIT OR Apache-2.0"
 hidpp-core = { path = "../hidpp-core" }
 hidapi = { workspace = true }
 serde = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+hidapi = { workspace = true, features = ["macos-shared-device"] }

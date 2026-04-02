@@ -2,12 +2,14 @@ use clap::Args;
 use hidapi::HidApi;
 use logitech_devices::enumerate_supported_devices;
 
+#[cfg(target_os = "macos")]
 use crate::permissions::open_input_monitoring_settings;
 use crate::style::{self, bold, dim, g_cyan_bold, CheckState};
 
 #[derive(Args)]
 pub struct DoctorArgs {
-    /// Open System Settings to the Input Monitoring pane automatically
+    /// Open System Settings to the Input Monitoring pane (macOS only)
+    #[cfg(target_os = "macos")]
     #[arg(long)]
     pub open_settings: bool,
 }
@@ -35,7 +37,19 @@ pub fn handle_doctor(args: &DoctorArgs) -> Result<(), String> {
                 &e.to_string(),
             );
             println!();
+            #[cfg(target_os = "macos")]
             println!("  {}  Try: {}", dim("hint"), bold("brew install hidapi"));
+            #[cfg(target_os = "windows")]
+            println!(
+                "  {}  HID API init failed. Ensure the device is connected.",
+                dim("hint")
+            );
+            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+            println!(
+                "  {}  Try installing hidapi: {}",
+                dim("hint"),
+                bold("sudo apt install libhidapi-dev")
+            );
             println!();
             return Ok(());
         }
@@ -106,35 +120,47 @@ pub fn handle_doctor(args: &DoctorArgs) -> Result<(), String> {
             }
             Err(e) => {
                 let msg = e.to_string().to_lowercase();
-                if msg.contains("permission") || msg.contains("operation not permitted") {
-                    style::print_check(
-                        CheckState::Fail,
-                        "Permission denied",
-                        "Input Monitoring not granted",
-                    );
+                if msg.contains("permission")
+                    || msg.contains("operation not permitted")
+                    || msg.contains("access denied")
+                {
+                    style::print_check(CheckState::Fail, "Permission denied", "device is locked");
                     println!();
-                    println!("  {}  To fix:", dim("fix"));
-                    println!(
-                        "       1. Open {} > {} > {}",
-                        bold("System Settings"),
-                        bold("Privacy & Security"),
-                        bold("Input Monitoring")
-                    );
-                    println!("       2. Add {} to the list", bold("opengcontrol"));
-                    println!("       3. Toggle off then back on if already listed");
 
-                    if args.open_settings {
-                        println!();
-                        println!("  {}  Opening System Settings…", dim("›"));
-                        open_input_monitoring_settings();
-                    } else {
-                        println!();
+                    #[cfg(target_os = "macos")]
+                    {
+                        println!("  {}  To fix:", dim("fix"));
                         println!(
-                            "  {}  Run {} to open System Settings automatically.",
-                            dim("tip"),
-                            bold("opengcontrol doctor --open-settings")
+                            "       1. Open {} > {} > {}",
+                            bold("System Settings"),
+                            bold("Privacy & Security"),
+                            bold("Input Monitoring")
                         );
+                        println!("       2. Add {} to the list", bold("opengcontrol"));
+                        println!("       3. Toggle off then back on if already listed");
+
+                        if args.open_settings {
+                            println!();
+                            println!("  {}  Opening System Settings…", dim("›"));
+                            open_input_monitoring_settings();
+                        } else {
+                            println!();
+                            println!(
+                                "  {}  Run {} to open System Settings automatically.",
+                                dim("tip"),
+                                bold("opengcontrol doctor --open-settings")
+                            );
+                        }
                     }
+
+                    #[cfg(target_os = "windows")]
+                    println!(
+                        "  {}  Close Logitech G HUB or Logi Options+ and try again.",
+                        dim("fix")
+                    );
+
+                    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+                    println!("  {}  Check udev rules or run with sudo.", dim("fix"));
                 } else {
                     style::print_check(CheckState::Fail, "Could not open device", &e.to_string());
                     println!();
@@ -178,10 +204,25 @@ pub fn handle_doctor(args: &DoctorArgs) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(unix)]
 fn is_process_running(name: &str) -> bool {
     std::process::Command::new("pgrep")
         .args(["-ix", name])
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
+}
+
+#[cfg(windows)]
+fn is_process_running(name: &str) -> bool {
+    let output = std::process::Command::new("tasklist")
+        .args(["/FI", &format!("IMAGENAME eq {name}.exe"), "/NH"])
+        .output();
+    match output {
+        Ok(o) => {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            stdout.to_lowercase().contains(&name.to_lowercase())
+        }
+        Err(_) => false,
+    }
 }
