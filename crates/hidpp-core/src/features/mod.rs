@@ -7,7 +7,10 @@ pub mod persistent_remap;
 pub mod polling_rate;
 pub mod profiles;
 
-pub use battery::{BatteryLevel, BatteryStatus, ChargingStatus, UnifiedBattery};
+pub use battery::{
+    read_battery, BatteryLevel, BatteryReading, BatteryStatus, BatteryVoltage, ChargingStatus,
+    UnifiedBattery,
+};
 pub use dpi::AdjustableDpi;
 pub use ifeature_set::IFeatureSet;
 pub use iroot::IRoot;

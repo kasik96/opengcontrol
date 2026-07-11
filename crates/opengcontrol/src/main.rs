@@ -107,7 +107,7 @@ fn print_device_header(ctx: &DeviceContext) {
 }
 
 fn handle_info(ctx: &DeviceContext, fmt: output::OutputFormat) -> Result<(), String> {
-    use hidpp_core::features::{AdjustableDpi, OnboardProfiles, PollingRate, UnifiedBattery};
+    use hidpp_core::features::{AdjustableDpi, OnboardProfiles, PollingRate};
     use output::{json, OutputFormat};
 
     let info = ctx.device_info();
@@ -125,7 +125,7 @@ fn handle_info(ctx: &DeviceContext, fmt: output::OutputFormat) -> Result<(), Str
         .map(|p| style::g_cyan_bold(&p.to_string()))
         .unwrap_or_else(|_| style::dim("–"));
 
-    let battery = UnifiedBattery::get_status(ctx.device())
+    let battery = hidpp_core::features::read_battery(ctx.device())
         .map(|s| style::g_cyan_bold(&battery_text(&s)))
         .unwrap_or_else(|_| style::dim("–"));
 
@@ -143,7 +143,7 @@ fn handle_info(ctx: &DeviceContext, fmt: output::OutputFormat) -> Result<(), Str
             let dpi_raw = AdjustableDpi::get_dpi(ctx.device(), 0).ok();
             let rate_raw = PollingRate::get_rate_hz(ctx.device()).ok();
             let profile_raw = OnboardProfiles::get_active_profile(ctx.device()).ok();
-            let battery_raw = UnifiedBattery::get_status(ctx.device()).ok();
+            let battery_raw = hidpp_core::features::read_battery(ctx.device()).ok();
             json::print_json(&serde_json::json!({
                 "device": info.name,
                 "vid": format!("{:04X}", info.vid),
@@ -159,24 +159,32 @@ fn handle_info(ctx: &DeviceContext, fmt: output::OutputFormat) -> Result<(), Str
     Ok(())
 }
 
-/// One-line battery summary, e.g. "72% (charging)" or "good (discharging)".
-fn battery_text(s: &hidpp_core::features::BatteryStatus) -> String {
-    let charge = match s.percentage {
+/// The charge portion of a reading, e.g. "72%", "~64%" (estimated), or "good".
+fn battery_charge_text(s: &hidpp_core::features::BatteryReading) -> String {
+    match s.percentage {
+        Some(p) if s.estimated => format!("~{p}%"),
         Some(p) => format!("{p}%"),
-        None => s.level.as_str().to_string(),
-    };
-    format!("{charge} ({})", s.charging.as_str())
+        None => s
+            .level
+            .map(|l| l.as_str().to_string())
+            .unwrap_or_else(|| "?".to_string()),
+    }
+}
+
+/// One-line battery summary, e.g. "72% (charging)" or "~64% (discharging)".
+fn battery_text(s: &hidpp_core::features::BatteryReading) -> String {
+    format!("{} ({})", battery_charge_text(s), s.charging.as_str())
 }
 
 fn handle_battery(ctx: &DeviceContext, fmt: output::OutputFormat) -> Result<(), String> {
-    use hidpp_core::features::UnifiedBattery;
+    use hidpp_core::features::read_battery;
     use output::{json, OutputFormat};
 
-    let status = match UnifiedBattery::get_status(ctx.device()) {
-        Ok(s) => s,
+    let r = match read_battery(ctx.device()) {
+        Ok(r) => r,
         Err(HidppError::FeatureNotSupported { .. }) => {
             return Err(
-                "This device does not report battery over HID++ (feature 0x1004).".to_string(),
+                "This device does not report battery over HID++ (no 0x1004/0x1001).".to_string(),
             )
         }
         Err(e) => return Err(e.to_string()),
@@ -185,19 +193,23 @@ fn handle_battery(ctx: &DeviceContext, fmt: output::OutputFormat) -> Result<(), 
     match fmt {
         OutputFormat::Human => {
             style::print_rule();
-            let charge = match status.percentage {
-                Some(p) => format!("{p}%"),
-                None => status.level.as_str().to_string(),
-            };
-            style::print_kv("Battery", &style::g_cyan_bold(&charge));
-            style::print_kv("Status", status.charging.as_str());
+            style::print_kv("Battery", &style::g_cyan_bold(&battery_charge_text(&r)));
+            style::print_kv("Status", r.charging.as_str());
+            if let Some(mv) = r.voltage_mv {
+                style::print_kv("Voltage", &format!("{:.3} V", mv as f64 / 1000.0));
+            }
+            if r.estimated {
+                println!("  {}", style::dim("(percentage estimated from voltage)"));
+            }
             println!();
         }
         OutputFormat::Json => json::print_json(&serde_json::json!({
-            "percentage": status.percentage,
-            "level": status.level.as_str(),
-            "charging": status.charging.is_charging(),
-            "status": status.charging.as_str(),
+            "percentage": r.percentage,
+            "estimated": r.estimated,
+            "level": r.level.map(|l| l.as_str()),
+            "charging": r.charging.is_charging(),
+            "status": r.charging.as_str(),
+            "voltage_mv": r.voltage_mv,
         })),
     }
 
