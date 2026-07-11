@@ -12,7 +12,13 @@ pub enum FeatureCode {
     PollingRate = 0x8060,
     RgbEffects = 0x8070,
     PerKeyLighting = 0x8071,
-    OnboardProfiles = 0x8110,
+    OnboardProfiles = 0x8100,
+    ReprogControls = 0x1B00,
+    ReprogControlsV2 = 0x1B01,
+    ReprogControlsV2_2 = 0x1B02,
+    ReprogControlsV3 = 0x1B03,
+    ReprogControlsV4 = 0x1B04,
+    PersistentRemappableAction = 0x1C00,
 }
 
 impl FeatureCode {
