@@ -104,6 +104,7 @@ fn action_label(action: &ButtonAction) -> String {
         ButtonAction::ProfileCycle => "Profile ↻".to_string(),
         ButtonAction::KeyCombo { modifiers, key } => format!("Key {modifiers:02X}+{key:02X}"),
         ButtonAction::Disabled => "—".to_string(),
+        ButtonAction::Described(s) => s.clone(),
     }
 }
 
@@ -117,5 +118,6 @@ fn action_style(action: &ButtonAction) -> (Style, bool) {
         ButtonAction::ProfileCycle => (Style::default().fg(AMBER), false),
         ButtonAction::KeyCombo { .. } => (Style::default().fg(DIM), false),
         ButtonAction::Disabled => (Style::default().fg(DIM).add_modifier(Modifier::DIM), false),
+        ButtonAction::Described(_) => (Style::default().fg(DIM), false),
     }
 }

@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
 use clap::{Args, Subcommand};
-use hidpp_core::features::{OnboardProfile, OnboardProfiles};
+use hidpp_core::features::{
+    disabled_record, key_record, mouse_button_record, OnboardProfile, OnboardProfiles,
+};
 use serde::Serialize;
 
 use crate::context::DeviceContext;
@@ -31,13 +33,81 @@ pub enum ProfileCommand {
         /// Profile index to export
         index: u8,
         /// Output file path
-        output: PathBuf,
+        #[arg(value_name = "OUTPUT")]
+        output_file: PathBuf,
     },
     /// Import and write a profile from a TOML file to the mouse
     Import {
         /// TOML file previously exported with 'profile export'
         file: PathBuf,
     },
+    /// Remap one button on a profile (writes onboard flash; sector-addressed devices).
+    ///
+    /// Backs up the affected sector to a file, writes via read-modify-write, and verifies
+    /// by read-back. Reversible: re-run with the previous action, or restore the backup.
+    SetButton {
+        /// Button index (0-based). The G-Shift bank is button_count..2*button_count.
+        button: u8,
+        /// left | right | middle | back | forward | dpi | disabled |
+        /// key:<F13..F24|0xNN> (optionally ctrl+/shift+/alt+/win+ prefixed)
+        action: String,
+        /// Profile index (0-based). Defaults to the active profile.
+        #[arg(long)]
+        profile: Option<u8>,
+    },
+}
+
+/// Parse a button action string into its 4-byte sector-layout record.
+fn parse_button_action(s: &str) -> Result<[u8; 4], String> {
+    match s.trim().to_ascii_lowercase().as_str() {
+        "left" => return Ok(mouse_button_record(0x0001)),
+        "right" => return Ok(mouse_button_record(0x0002)),
+        "middle" => return Ok(mouse_button_record(0x0004)),
+        "back" => return Ok(mouse_button_record(0x0008)),
+        "forward" => return Ok(mouse_button_record(0x0010)),
+        "dpi" => return Ok(mouse_button_record(0x2000)),
+        "disabled" | "none" => return Ok(disabled_record()),
+        _ => {}
+    }
+    if let Some(spec) = s.trim().strip_prefix("key:") {
+        let tokens: Vec<&str> = spec.split('+').collect();
+        let (mods, key_tok) = tokens.split_at(tokens.len() - 1);
+        let mut modifiers = 0u8;
+        for m in mods {
+            modifiers |= match m.to_ascii_lowercase().as_str() {
+                "ctrl" | "control" => 0x01,
+                "shift" => 0x02,
+                "alt" | "option" => 0x04,
+                "win" | "gui" | "cmd" | "super" => 0x08,
+                other => return Err(format!("unknown modifier '{other}'")),
+            };
+        }
+        return Ok(key_record(modifiers, parse_hid_key(key_tok[0])?));
+    }
+    Err(format!(
+        "unknown action '{s}' (use left|right|middle|back|forward|dpi|disabled|key:<F13-F24|0xNN>)"
+    ))
+}
+
+/// Parse a HID keyboard usage from an `F13`..`F24` name or a `0xNN` hex literal.
+fn parse_hid_key(tok: &str) -> Result<u8, String> {
+    let t = tok.trim();
+    if let Some(hex) = t.strip_prefix("0x").or_else(|| t.strip_prefix("0X")) {
+        return u8::from_str_radix(hex, 16).map_err(|_| format!("bad hex key '{t}'"));
+    }
+    if let Some(n) = t
+        .strip_prefix(['F', 'f'])
+        .and_then(|d| d.parse::<u8>().ok())
+    {
+        if (1..=12).contains(&n) {
+            return Ok(0x3A + (n - 1)); // F1..F12
+        }
+        if (13..=24).contains(&n) {
+            return Ok(0x68 + (n - 13)); // F13..F24
+        }
+        return Err(format!("F{n} out of range (F1..F24)"));
+    }
+    Err(format!("cannot parse key '{t}' (use F13..F24 or 0xNN)"))
 }
 
 #[derive(Serialize)]
@@ -69,8 +139,12 @@ pub fn handle_profile(
                 }
             };
 
+            // Iterate the profiles actually present in the directory, not the raw slot
+            // capacity — a factory device may expose fewer (e.g. 2 ROM profiles).
+            let count = OnboardProfiles::provisioned_profile_count(ctx.device())
+                .unwrap_or(info.profile_count);
             let mut profiles = Vec::new();
-            for i in 0..info.profile_count {
+            for i in 0..count {
                 profiles.push((i, OnboardProfiles::read_profile(ctx.device(), i).ok()));
             }
             sp.clear();
@@ -112,6 +186,22 @@ pub fn handle_profile(
                                 dim("Poll rate"),
                                 g_cyan(&format!("{} Hz", p.polling_rate_hz))
                             );
+
+                            let buttons: Vec<_> = p
+                                .button_assignments
+                                .iter()
+                                .filter(|b| !b.action.is_unassigned())
+                                .collect();
+                            if !buttons.is_empty() {
+                                println!("     {}", dim("Buttons"));
+                                for b in buttons {
+                                    println!(
+                                        "       {:<12}{}",
+                                        dim(&format!("Button {}", b.button_index)),
+                                        g_cyan(&b.action.describe())
+                                    );
+                                }
+                            }
                         } else {
                             println!("     {}", dim("(unreadable)"));
                         }
@@ -129,6 +219,10 @@ pub fn handle_profile(
                                     "dpi_slots": p.dpi_slots,
                                     "active_dpi_slot": p.active_dpi_slot,
                                     "polling_rate_hz": p.polling_rate_hz,
+                                    "buttons": p.button_assignments.iter().map(|b| serde_json::json!({
+                                        "index": b.button_index,
+                                        "action": b.action.describe(),
+                                    })).collect::<Vec<_>>(),
                                 }))
                             })
                         })
@@ -187,7 +281,7 @@ pub fn handle_profile(
 
         ProfileCommand::Export {
             index,
-            output: out_path,
+            output_file: out_path,
         } => {
             let sp = Spinner::new(format!("Reading profile {index} from flash…"), output);
             let profile = match OnboardProfiles::read_profile(ctx.device(), *index) {
@@ -243,6 +337,65 @@ pub fn handle_profile(
                     json::print_json(&serde_json::json!({
                         "imported": index,
                         "file": file.display().to_string()
+                    }));
+                }
+            }
+        }
+
+        ProfileCommand::SetButton {
+            button,
+            action,
+            profile,
+        } => {
+            let record = parse_button_action(action)?;
+
+            let profile_idx = match profile {
+                Some(p) => *p,
+                None => OnboardProfiles::get_active_profile(ctx.device())
+                    .map_err(|e| format!("Failed to read active profile: {e}"))?,
+            };
+
+            // Back up the affected sector before touching it.
+            let sector = OnboardProfiles::profile_data_sector(ctx.device(), profile_idx)
+                .map_err(|e| e.to_string())?;
+            let backup = OnboardProfiles::read_raw_sector(ctx.device(), sector)
+                .map_err(|e| e.to_string())?;
+            let backup_hex: String = backup.iter().map(|b| format!("{b:02x}")).collect();
+            let backup_path = format!("profile{profile_idx}_sector{sector:#06X}_backup.hex");
+            std::fs::write(&backup_path, &backup_hex)
+                .map_err(|e| format!("Failed to write backup {backup_path}: {e}"))?;
+
+            let sp = Spinner::new(
+                format!("Writing button {button} on profile {profile_idx}…"),
+                output,
+            );
+            let original =
+                match OnboardProfiles::set_button(ctx.device(), profile_idx, *button, record) {
+                    Ok(o) => o,
+                    Err(e) => {
+                        sp.finish_err(format!("Failed to write button {button}"));
+                        return Err(e.to_string());
+                    }
+                };
+
+            match output {
+                OutputFormat::Human => sp.finish_ok(format!(
+                    "Button {} on profile {}: {:02X?} → {:02X?}   (backup: {})",
+                    g_cyan_bold(&button.to_string()),
+                    g_cyan_bold(&profile_idx.to_string()),
+                    original,
+                    record,
+                    backup_path,
+                )),
+                OutputFormat::Json => {
+                    sp.clear();
+                    json::print_json(&serde_json::json!({
+                        "profile": profile_idx,
+                        "button": button,
+                        "sector": format!("{sector:#06X}"),
+                        "previous": original.iter().map(|b| format!("{b:02X}")).collect::<Vec<_>>(),
+                        "written": record.iter().map(|b| format!("{b:02X}")).collect::<Vec<_>>(),
+                        "backup_file": backup_path,
                     }));
                 }
             }
