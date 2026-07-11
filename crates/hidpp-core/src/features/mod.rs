@@ -13,5 +13,5 @@ pub use persistent_remap::{PersistentRemap, RemapEntry};
 pub use polling_rate::PollingRate;
 pub use profiles::{
     crc_ccitt, disabled_record, key_record, mouse_button_record, ButtonAction, ButtonAssignment,
-    OnboardProfile, OnboardProfiles, ProfileInfo,
+    ButtonRemap, CloneOptions, CloneReport, OnboardProfile, OnboardProfiles, ProfileInfo,
 };

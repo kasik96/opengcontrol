@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::{Args, Subcommand};
 use hidpp_core::features::{
-    disabled_record, key_record, mouse_button_record, OnboardProfile, OnboardProfiles,
+    disabled_record, key_record, mouse_button_record, CloneOptions, OnboardProfile, OnboardProfiles,
 };
 use serde::Serialize;
 
@@ -55,6 +55,26 @@ pub enum ProfileCommand {
         #[arg(long)]
         profile: Option<u8>,
     },
+    /// Clone a profile from another mouse onto this one (sector-addressed devices).
+    ///
+    /// Reads the source read-only, remaps buttons by physical position (derived from each
+    /// model's factory default — no hardcoded tables), and provisions this mouse's user
+    /// flash if it is still ROM-only. Always writes destination profile 0 and activates it.
+    /// Use --dry-run to preview the plan without writing.
+    Clone {
+        /// Source device HID path (see 'opengcontrol list'). Opened read-only.
+        #[arg(long)]
+        from: String,
+        /// Source profile index to copy (0-based).
+        #[arg(long, default_value_t = 0)]
+        profile: u8,
+        /// Override the cloned profile's DPI (slot 0).
+        #[arg(long)]
+        dpi: Option<u16>,
+        /// Compute and print the plan without writing.
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 /// Parse a button action string into its 4-byte sector-layout record.
@@ -68,6 +88,26 @@ fn parse_button_action(s: &str) -> Result<[u8; 4], String> {
         "dpi" => return Ok(mouse_button_record(0x2000)),
         "disabled" | "none" => return Ok(disabled_record()),
         _ => {}
+    }
+    if let Some(spec) = s.trim().strip_prefix("func:") {
+        let code = match spec.trim().to_ascii_lowercase().as_str() {
+            "tilt-left" => 0x01,
+            "tilt-right" => 0x02,
+            "next-dpi" => 0x03,
+            "prev-dpi" => 0x04,
+            "cycle-dpi" => 0x05,
+            "default-dpi" => 0x06,
+            "dpi-shift" | "sniper" => 0x07,
+            "next-profile" => 0x08,
+            "prev-profile" => 0x09,
+            "cycle-profile" => 0x0A,
+            "gshift" | "g-shift" => 0x0B,
+            "battery" => 0x0C,
+            hex => u8::from_str_radix(hex.strip_prefix("0x").unwrap_or(hex), 16)
+                .map_err(|_| format!("unknown function '{spec}'"))?,
+        };
+        // Sector function record: 0x90, <code>, 0x00, <data=0>.
+        return Ok([0x90, code, 0x00, 0x00]);
     }
     if let Some(spec) = s.trim().strip_prefix("key:") {
         let tokens: Vec<&str> = spec.split('+').collect();
@@ -85,7 +125,8 @@ fn parse_button_action(s: &str) -> Result<[u8; 4], String> {
         return Ok(key_record(modifiers, parse_hid_key(key_tok[0])?));
     }
     Err(format!(
-        "unknown action '{s}' (use left|right|middle|back|forward|dpi|disabled|key:<F13-F24|0xNN>)"
+        "unknown action '{s}' (use left|right|middle|back|forward|dpi|disabled|\
+         key:<F13-F24|0xNN>|func:<gshift|dpi-shift|cycle-profile|tilt-left|…|0xNN>)"
     ))
 }
 
@@ -398,6 +439,83 @@ pub fn handle_profile(
                         "backup_file": backup_path,
                     }));
                 }
+            }
+        }
+        ProfileCommand::Clone {
+            from,
+            profile,
+            dpi,
+            dry_run,
+        } => {
+            let src = DeviceContext::open(Some(from), output).map_err(|e| e.to_string())?;
+            let opts = CloneOptions {
+                src_profile: *profile,
+                dpi_override: *dpi,
+                dry_run: *dry_run,
+            };
+            let sp = Spinner::new(
+                if *dry_run {
+                    "Computing clone plan…".to_string()
+                } else {
+                    "Cloning profile…".to_string()
+                },
+                output,
+            );
+            let report = match OnboardProfiles::clone_profile(src.device(), ctx.device(), &opts) {
+                Ok(r) => r,
+                Err(e) => {
+                    sp.finish_err("Clone failed");
+                    return Err(e.to_string());
+                }
+            };
+            sp.clear();
+
+            match output {
+                OutputFormat::Human => {
+                    println!();
+                    println!(
+                        "  {} button remap (source slot → this mouse's slot):",
+                        g_cyan(style::SYM_ARROW)
+                    );
+                    for (s, d) in &report.remap.pairs {
+                        println!("     {s:>2} → {d}");
+                    }
+                    if !report.remap.unmapped_src.is_empty() {
+                        println!(
+                            "  {} source buttons with no counterpart here (kept factory default): {:?}",
+                            dim("!"),
+                            report.remap.unmapped_src
+                        );
+                    }
+                    println!();
+                    if report.wrote {
+                        let how = if report.provisioned {
+                            "provisioned user flash and wrote"
+                        } else {
+                            "overwrote"
+                        };
+                        println!(
+                            "  {} {} profile 0 (sector {:#06X}); activated.",
+                            g_cyan_bold("✓"),
+                            how,
+                            report.target_sector
+                        );
+                    } else {
+                        println!(
+                            "  {} dry run — nothing written. Would target sector {:#06X}.",
+                            dim("i"),
+                            report.target_sector
+                        );
+                    }
+                    println!();
+                }
+                OutputFormat::Json => json::print_json(&serde_json::json!({
+                    "remap": report.remap.pairs,
+                    "unmapped_source_slots": report.remap.unmapped_src,
+                    "provisioned": report.provisioned,
+                    "target_sector": format!("{:#06X}", report.target_sector),
+                    "wrote": report.wrote,
+                })),
             }
         }
     }

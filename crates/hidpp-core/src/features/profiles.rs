@@ -615,6 +615,213 @@ impl OnboardProfiles {
         }
         Ok(original)
     }
+
+    /// Read the factory **ROM** default profile's sector bytes. The ROM directory lives at
+    /// base `0x0100`; its first entry's data sector holds the default profile. Used to
+    /// identify each physical button by its factory action (see [`Self::derive_button_remap`]).
+    fn read_rom_default<T: HidTransport>(
+        device: &HidppDevice<T>,
+        size: u16,
+    ) -> Result<Vec<u8>, HidppError> {
+        let chunk = Self::read_sector_chunk(device, 0x0100, 0)?;
+        let sector = u16::from_be_bytes([chunk[0], chunk[1]]);
+        Self::read_sector(device, sector, size)
+    }
+
+    /// Compute the physical-button correspondence between two sector-addressed devices by
+    /// diffing their factory ROM default profiles.
+    ///
+    /// In a factory default each button slot holds *that button's* natural function, so the
+    /// action identifies the physical button. Matching identities across the two defaults
+    /// yields `source slot -> destination slot` with **no hardcoded per-model table** — the
+    /// same trick works for any device pair. Slots whose factory action differs between
+    /// models (e.g. the G502's Battery button vs. the G502 X's Cycle-Profile button) can't
+    /// be matched and are reported in `unmapped_src`.
+    pub fn derive_button_remap(
+        src_default: &[u8],
+        dst_default: &[u8],
+        button_count: usize,
+    ) -> ButtonRemap {
+        let id = |b: &[u8], i: usize| b.get(32 + i * 4..32 + i * 4 + 4).and_then(button_identity);
+        let mut pairs = Vec::new();
+        let mut unmapped_src = Vec::new();
+        for s in 0..button_count {
+            match id(src_default, s)
+                .and_then(|want| (0..button_count).find(|&d| id(dst_default, d) == Some(want)))
+            {
+                Some(d) => pairs.push((s, d)),
+                None => unmapped_src.push(s),
+            }
+        }
+        ButtonRemap {
+            pairs,
+            unmapped_src,
+        }
+    }
+
+    /// Provision user flash with a single-profile directory at sector `0x0000` pointing at
+    /// `data_sector`. Written *after* the data sector so a mid-sequence failure leaves the
+    /// ROM fallback intact; reversible by blanking `0x0000`.
+    fn write_user_directory<T: HidTransport>(
+        device: &HidppDevice<T>,
+        size: u16,
+        data_sector: u16,
+    ) -> Result<(), HidppError> {
+        let mut dir = vec![0xFFu8; size as usize];
+        let [hi, lo] = data_sector.to_be_bytes();
+        dir[0] = hi;
+        dir[1] = lo;
+        dir[2] = 0x01; // enabled
+        dir[3] = 0xFF;
+        // dir[4..6] stay 0xFF -> the directory terminator.
+        Self::write_raw_sector(device, 0x0000, &mut dir)
+    }
+
+    /// Clone a profile from `src` onto `dst`, remapping buttons by physical position and
+    /// provisioning `dst`'s user flash if it is still ROM-only. Both devices must use the
+    /// sector-addressed layout (`memory_model == 1`) and share a profile size.
+    ///
+    /// The destination image starts from the source profile (header, DPI, name), with both
+    /// button banks permuted into the destination's slot order via [`Self::derive_button_remap`];
+    /// destination slots with no source counterpart keep the destination's factory record.
+    /// The clone always targets destination **profile 0** (overwriting user flash in place if
+    /// already provisioned, else provisioning sector `0x0001`), then makes it active. Set
+    /// `opts.dry_run` to compute the plan and image without writing.
+    pub fn clone_profile<T: HidTransport>(
+        src: &HidppDevice<T>,
+        dst: &HidppDevice<T>,
+        opts: &CloneOptions,
+    ) -> Result<CloneReport, HidppError> {
+        let src_info = Self::get_info(src)?;
+        let dst_info = Self::get_info(dst)?;
+        for info in [&src_info, &dst_info] {
+            if info.memory_model != 0x01 {
+                return Err(HidppError::UnsupportedProfileMemoryModel {
+                    memory_model: info.memory_model,
+                });
+            }
+        }
+        if src_info.profile_size != dst_info.profile_size {
+            return Err(HidppError::Transport(format!(
+                "profile size mismatch: source {} vs destination {}",
+                src_info.profile_size, dst_info.profile_size
+            )));
+        }
+        let size = dst_info.profile_size;
+        let bc = dst_info.button_count as usize;
+
+        let src_sector_addr = Self::profile_data_sector(src, opts.src_profile)?;
+        let src_sector = Self::read_sector(src, src_sector_addr, size)?;
+        let src_default = Self::read_rom_default(src, size)?;
+        let dst_default = Self::read_rom_default(dst, size)?;
+        let remap = Self::derive_button_remap(&src_default, &dst_default, bc);
+
+        // Build the destination image: source header/name, banks permuted into dst slots.
+        let mut out = src_sector.clone();
+        if let Some(dpi) = opts.dpi_override {
+            out[1] = 0x00; // active DPI slot 0
+            let [lo, hi] = dpi.to_le_bytes();
+            out[3] = lo;
+            out[4] = hi;
+        }
+        for dst_slot in 0..bc {
+            let src_slot = remap
+                .pairs
+                .iter()
+                .find(|(_, d)| *d == dst_slot)
+                .map(|(s, _)| *s);
+            for base in [32usize, 96usize] {
+                let dst_off = base + dst_slot * 4;
+                let rec: [u8; 4] = match src_slot {
+                    Some(s) => src_sector[base + s * 4..base + s * 4 + 4]
+                        .try_into()
+                        .unwrap(),
+                    // No source counterpart: keep the destination's factory record.
+                    None => dst_default[dst_off..dst_off + 4].try_into().unwrap(),
+                };
+                out[dst_off..dst_off + 4].copy_from_slice(&rec);
+            }
+        }
+
+        // A user sector (< 0x0100) for profile 0 means user flash is already provisioned
+        // (overwrite in place); a ROM sector means we must provision.
+        let target = Self::profile_data_sector(dst, 0).unwrap_or(0x0100);
+        let already_provisioned = target < 0x0100;
+        let target_sector = if already_provisioned { target } else { 0x0001 };
+
+        if opts.dry_run {
+            return Ok(CloneReport {
+                remap,
+                provisioned: false,
+                target_sector,
+                wrote: false,
+                image: out,
+            });
+        }
+
+        // Data sector first, then (if needed) the directory that points at it.
+        Self::write_raw_sector(dst, target_sector, &mut out)?;
+        if !already_provisioned {
+            Self::write_user_directory(dst, size, target_sector)?;
+        }
+        Self::set_active_profile(dst, 0)?;
+
+        Ok(CloneReport {
+            remap,
+            provisioned: !already_provisioned,
+            target_sector,
+            wrote: true,
+            image: out,
+        })
+    }
+}
+
+/// Identifies the physical button a *default-profile* slot record represents, so the same
+/// button can be matched across device models. `Some((kind, code))` for mouse-button
+/// (`kind = 0x01`, code = bitmask) and function (`kind = 0x90`, code = function id) records;
+/// `None` for records that don't name a button unambiguously (keys, macros, empty) — those
+/// don't appear in factory defaults.
+fn button_identity(rec: &[u8]) -> Option<(u8, u8)> {
+    match rec.first()? >> 4 {
+        0x9 => Some((0x90, rec[1])),
+        0x8 if rec[1] == 0x01 => Some((0x01, rec[3])),
+        _ => None,
+    }
+}
+
+/// Result of [`OnboardProfiles::derive_button_remap`].
+#[derive(Debug, Clone)]
+pub struct ButtonRemap {
+    /// `(source slot, destination slot)` pairs matched by physical-button identity.
+    pub pairs: Vec<(usize, usize)>,
+    /// Source slots whose physical button has no counterpart on the destination model.
+    pub unmapped_src: Vec<usize>,
+}
+
+/// Options for [`OnboardProfiles::clone_profile`].
+#[derive(Debug, Clone, Default)]
+pub struct CloneOptions {
+    /// Source profile index to copy (0-based).
+    pub src_profile: u8,
+    /// If set, override the cloned profile's DPI slot 0.
+    pub dpi_override: Option<u16>,
+    /// Compute the plan and image without writing anything.
+    pub dry_run: bool,
+}
+
+/// Outcome of [`OnboardProfiles::clone_profile`].
+#[derive(Debug, Clone)]
+pub struct CloneReport {
+    /// The physical-button correspondence used.
+    pub remap: ButtonRemap,
+    /// True if this run provisioned the destination's user flash (was ROM-only before).
+    pub provisioned: bool,
+    /// Destination data sector written (or that would be written, for a dry run).
+    pub target_sector: u16,
+    /// Whether anything was actually written (false for a dry run).
+    pub wrote: bool,
+    /// The full destination sector image that was (or would be) written.
+    pub image: Vec<u8>,
 }
 
 /// Build a sector-layout button record binding a mouse button by its bitmask `code`
@@ -867,6 +1074,66 @@ mod tests {
             0x05,
             [0xFF, 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         ));
+    }
+
+    // A 255-byte sector carrying `records` as its primary button bank (offset 32).
+    fn sector_with_bank(records: &[[u8; 4]]) -> Vec<u8> {
+        let mut s = vec![0xFFu8; 255];
+        for (i, r) in records.iter().enumerate() {
+            s[32 + i * 4..32 + i * 4 + 4].copy_from_slice(r);
+        }
+        s
+    }
+
+    // derive_button_remap must reproduce the G502 -> G502 X physical correspondence
+    // (hand-derived as dst<-src = [0,1,2,3,5,4,10,9,8,7,6]) purely from the two devices'
+    // ROM default profiles — no hardcoded table. Button banks are the real bytes captured
+    // off each device's ROM default (sector 0x0101).
+    #[test]
+    fn derive_button_remap_from_rom_defaults() {
+        let old = sector_with_bank(&[
+            [0x80, 0x01, 0x00, 0x01], // 0  Left
+            [0x80, 0x01, 0x00, 0x02], // 1  Right
+            [0x80, 0x01, 0x00, 0x04], // 2  Middle
+            [0x80, 0x01, 0x00, 0x08], // 3  Back
+            [0x80, 0x01, 0x00, 0x10], // 4  Forward
+            [0x90, 0x07, 0x00, 0x00], // 5  DPI Shift (sniper)
+            [0x90, 0x04, 0x00, 0x00], // 6  Prev DPI
+            [0x90, 0x03, 0x00, 0x00], // 7  Next DPI
+            [0x90, 0x0C, 0x00, 0x00], // 8  Battery
+            [0x90, 0x02, 0x00, 0x00], // 9  Tilt Right
+            [0x90, 0x01, 0x00, 0x00], // 10 Tilt Left
+        ]);
+        let x = sector_with_bank(&[
+            [0x80, 0x01, 0x00, 0x01], // 0  Left
+            [0x80, 0x01, 0x00, 0x02], // 1  Right
+            [0x80, 0x01, 0x00, 0x04], // 2  Middle
+            [0x80, 0x01, 0x00, 0x08], // 3  Back
+            [0x90, 0x07, 0x00, 0x00], // 4  DPI Shift (sniper)
+            [0x80, 0x01, 0x00, 0x10], // 5  Forward
+            [0x90, 0x01, 0x00, 0x00], // 6  Tilt Left
+            [0x90, 0x02, 0x00, 0x00], // 7  Tilt Right
+            [0x90, 0x0A, 0x00, 0x00], // 8  Cycle Profile
+            [0x90, 0x03, 0x00, 0x00], // 9  Next DPI
+            [0x90, 0x04, 0x00, 0x00], // 10 Prev DPI
+        ]);
+
+        let remap = OnboardProfiles::derive_button_remap(&old, &x, 11);
+
+        let mut dst_for = [None; 11];
+        for (s, d) in &remap.pairs {
+            dst_for[*s] = Some(*d);
+        }
+        assert_eq!(dst_for[0], Some(0));
+        assert_eq!(dst_for[3], Some(3));
+        assert_eq!(dst_for[4], Some(5)); // old Forward   -> X slot 5
+        assert_eq!(dst_for[5], Some(4)); // old Sniper    -> X slot 4
+        assert_eq!(dst_for[6], Some(10)); // old Prev DPI -> X slot 10
+        assert_eq!(dst_for[7], Some(9)); // old Next DPI  -> X slot 9
+        assert_eq!(dst_for[9], Some(7)); // old Tilt R    -> X slot 7
+        assert_eq!(dst_for[10], Some(6)); // old Tilt L   -> X slot 6
+                                          // The G502 Battery button has no G502 X default counterpart.
+        assert_eq!(remap.unmapped_src, vec![8]);
     }
 
     // getCurrentProfile (fn 4) returns the active profile's data sector in params[0..1];
