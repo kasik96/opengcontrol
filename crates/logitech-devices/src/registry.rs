@@ -1,6 +1,8 @@
 use crate::device_info::DeviceInfo;
 use crate::devices::g305::{G305_SE_WIRELESS, G305_WIRELESS};
 use crate::devices::g403::{G403_HERO_WIRED, G403_WIRED, G403_WIRELESS};
+use crate::devices::g502_lightspeed::{G502_LIGHTSPEED_WIRED, G502_LIGHTSPEED_WIRELESS};
+use crate::devices::g502x::{G502X_LIGHTSPEED_WIRED, G502X_LIGHTSPEED_WIRELESS};
 
 /// All supported devices. To add a new device:
 /// 1. Create a file in `src/devices/<name>.rs` with `static DEVICE: DeviceInfo = ...`
@@ -12,6 +14,10 @@ static DEVICE_REGISTRY: &[&DeviceInfo] = &[
     &G403_WIRELESS,
     &G305_WIRELESS,
     &G305_SE_WIRELESS,
+    &G502_LIGHTSPEED_WIRED,
+    &G502_LIGHTSPEED_WIRELESS,
+    &G502X_LIGHTSPEED_WIRED,
+    &G502X_LIGHTSPEED_WIRELESS,
     // Future additions:
     // &g502::G502_WIRED,
     // &g502::G502_HERO_WIRED,
@@ -89,6 +95,30 @@ mod tests {
     fn find_g305_se_wireless() {
         let dev = find_device(0x046D, 0xC53F).unwrap();
         assert_eq!(dev.name, "Logitech G305 SE");
+    }
+
+    #[test]
+    fn find_g502x_lightspeed_wired() {
+        let dev = find_device(0x046D, 0xC098).unwrap();
+        assert_eq!(dev.name, "Logitech G502 X LIGHTSPEED");
+    }
+
+    #[test]
+    fn find_g502x_lightspeed_wireless() {
+        let dev = find_device(0x046D, 0xC547).unwrap();
+        assert_eq!(dev.name, "Logitech G502 X LIGHTSPEED (Wireless)");
+    }
+
+    #[test]
+    fn find_g502_lightspeed_wired() {
+        let dev = find_device(0x046D, 0xC08D).unwrap();
+        assert_eq!(dev.name, "Logitech G502 LIGHTSPEED");
+    }
+
+    #[test]
+    fn find_g502_lightspeed_wireless() {
+        let dev = find_device(0x046D, 0xC539).unwrap();
+        assert_eq!(dev.name, "Logitech G502 LIGHTSPEED (Wireless)");
     }
 
     #[test]

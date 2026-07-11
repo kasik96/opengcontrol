@@ -19,6 +19,8 @@ Configure your Logitech G-series mouse — DPI, polling rate, onboard profiles �
 | G403 HERO | ✓ `046D:C08F` | — |
 | G305 LIGHTSPEED | — | ✓ `046D:C092` |
 | G305 SE | — | ✓ `046D:C53F` |
+| G502 LIGHTSPEED | ✓ `046D:C08D` | ✓ `046D:C539` |
+| G502 X LIGHTSPEED | ✓ `046D:C098` | ✓ `046D:C547` |
 
 Wireless mice connect through a Unifying receiver. opengcontrol automatically selects the correct HID++ interface on the receiver — no extra configuration needed.
 
