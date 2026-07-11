@@ -8,6 +8,7 @@ pub enum FeatureCode {
     IFeatureSet = 0x0001,
     IFirmwareInfo = 0x0003,
     DeviceName = 0x0005,
+    UnifiedBattery = 0x1004,
     AdjustableDpi = 0x2201,
     PollingRate = 0x8060,
     RgbEffects = 0x8070,

@@ -41,6 +41,9 @@ pub enum Commands {
     /// Show current device settings (DPI, polling rate, active profile)
     Info,
 
+    /// Show battery level and charging status
+    Battery,
+
     /// DPI configuration
     Dpi(dpi::DpiArgs),
 

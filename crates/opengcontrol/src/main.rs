@@ -77,6 +77,7 @@ fn run() -> Result<(), String> {
 
     match cli.command {
         Commands::Info => handle_info(&ctx, output),
+        Commands::Battery => handle_battery(&ctx, output),
         Commands::Dpi(args) => cli::dpi::handle_dpi(&ctx, &args.command, output),
         Commands::Polling(args) => cli::polling::handle_polling(&ctx, &args.command, output),
         Commands::Profile(args) => cli::profile::handle_profile(&ctx, &args.command, output),
@@ -106,7 +107,7 @@ fn print_device_header(ctx: &DeviceContext) {
 }
 
 fn handle_info(ctx: &DeviceContext, fmt: output::OutputFormat) -> Result<(), String> {
-    use hidpp_core::features::{AdjustableDpi, OnboardProfiles, PollingRate};
+    use hidpp_core::features::{AdjustableDpi, OnboardProfiles, PollingRate, UnifiedBattery};
     use output::{json, OutputFormat};
 
     let info = ctx.device_info();
@@ -124,12 +125,17 @@ fn handle_info(ctx: &DeviceContext, fmt: output::OutputFormat) -> Result<(), Str
         .map(|p| style::g_cyan_bold(&p.to_string()))
         .unwrap_or_else(|_| style::dim("–"));
 
+    let battery = UnifiedBattery::get_status(ctx.device())
+        .map(|s| style::g_cyan_bold(&battery_text(&s)))
+        .unwrap_or_else(|_| style::dim("–"));
+
     match fmt {
         OutputFormat::Human => {
             style::print_rule();
             style::print_kv("DPI", &dpi);
             style::print_kv("Polling rate", &rate);
             style::print_kv("Active profile", &profile);
+            style::print_kv("Battery", &battery);
             println!();
         }
         OutputFormat::Json => {
@@ -137,6 +143,7 @@ fn handle_info(ctx: &DeviceContext, fmt: output::OutputFormat) -> Result<(), Str
             let dpi_raw = AdjustableDpi::get_dpi(ctx.device(), 0).ok();
             let rate_raw = PollingRate::get_rate_hz(ctx.device()).ok();
             let profile_raw = OnboardProfiles::get_active_profile(ctx.device()).ok();
+            let battery_raw = UnifiedBattery::get_status(ctx.device()).ok();
             json::print_json(&serde_json::json!({
                 "device": info.name,
                 "vid": format!("{:04X}", info.vid),
@@ -144,8 +151,54 @@ fn handle_info(ctx: &DeviceContext, fmt: output::OutputFormat) -> Result<(), Str
                 "dpi": dpi_raw,
                 "polling_rate_hz": rate_raw,
                 "active_profile": profile_raw,
+                "battery_percent": battery_raw.and_then(|b| b.percentage),
             }));
         }
+    }
+
+    Ok(())
+}
+
+/// One-line battery summary, e.g. "72% (charging)" or "good (discharging)".
+fn battery_text(s: &hidpp_core::features::BatteryStatus) -> String {
+    let charge = match s.percentage {
+        Some(p) => format!("{p}%"),
+        None => s.level.as_str().to_string(),
+    };
+    format!("{charge} ({})", s.charging.as_str())
+}
+
+fn handle_battery(ctx: &DeviceContext, fmt: output::OutputFormat) -> Result<(), String> {
+    use hidpp_core::features::UnifiedBattery;
+    use output::{json, OutputFormat};
+
+    let status = match UnifiedBattery::get_status(ctx.device()) {
+        Ok(s) => s,
+        Err(HidppError::FeatureNotSupported { .. }) => {
+            return Err(
+                "This device does not report battery over HID++ (feature 0x1004).".to_string(),
+            )
+        }
+        Err(e) => return Err(e.to_string()),
+    };
+
+    match fmt {
+        OutputFormat::Human => {
+            style::print_rule();
+            let charge = match status.percentage {
+                Some(p) => format!("{p}%"),
+                None => status.level.as_str().to_string(),
+            };
+            style::print_kv("Battery", &style::g_cyan_bold(&charge));
+            style::print_kv("Status", status.charging.as_str());
+            println!();
+        }
+        OutputFormat::Json => json::print_json(&serde_json::json!({
+            "percentage": status.percentage,
+            "level": status.level.as_str(),
+            "charging": status.charging.is_charging(),
+            "status": status.charging.as_str(),
+        })),
     }
 
     Ok(())
