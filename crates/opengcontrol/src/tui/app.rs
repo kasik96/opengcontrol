@@ -281,6 +281,9 @@ fn cycle_action_next(action: &ButtonAction) -> ButtonAction {
         ButtonAction::ProfileCycle => ButtonAction::Disabled,
         ButtonAction::Disabled => ButtonAction::MouseButton(1),
         ButtonAction::KeyCombo { .. } => ButtonAction::MouseButton(1),
+        // Only produced by reading sector-model devices, which this editor doesn't
+        // support writing to; treat like an unset assignment.
+        ButtonAction::Described(_) => ButtonAction::MouseButton(1),
     }
 }
 
@@ -293,5 +296,6 @@ fn cycle_action_prev(action: &ButtonAction) -> ButtonAction {
         ButtonAction::ProfileCycle => ButtonAction::DpiCycleDown,
         ButtonAction::Disabled => ButtonAction::ProfileCycle,
         ButtonAction::KeyCombo { .. } => ButtonAction::Disabled,
+        ButtonAction::Described(_) => ButtonAction::Disabled,
     }
 }

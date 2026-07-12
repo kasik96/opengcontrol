@@ -1,5 +1,5 @@
 use clap::{Args, Subcommand};
-use hidpp_core::features::PollingRate;
+use hidpp_core::features::{OnboardProfiles, PollingRate};
 use serde::Serialize;
 
 use crate::context::DeviceContext;
@@ -60,9 +60,20 @@ pub fn handle_polling(
         }
 
         PollingCommand::Set { hz } => {
-            let supported = ctx.device_info().supported_polling_rates();
             let sp = Spinner::new(format!("Setting polling rate to {hz} Hz…"), output);
-            match PollingRate::set_rate_hz(ctx.device(), *hz, supported) {
+            // On sector-addressed (onboard-profile) mice the rate lives in the active
+            // profile; the standalone 0x8060 feature rejects a direct set in onboard mode,
+            // so write the profile instead.
+            let sector_model = OnboardProfiles::get_info(ctx.device())
+                .map(|i| i.memory_model == 0x01)
+                .unwrap_or(false);
+            let result = if sector_model {
+                OnboardProfiles::set_poll_rate(ctx.device(), *hz)
+            } else {
+                let supported = ctx.device_info().supported_polling_rates();
+                PollingRate::set_rate_hz(ctx.device(), *hz, supported)
+            };
+            match result {
                 Ok(()) => {}
                 Err(e) => {
                     sp.finish_err(format!("Failed — {e}"));
@@ -71,8 +82,13 @@ pub fn handle_polling(
             }
             match output {
                 OutputFormat::Human => sp.finish_ok(format!(
-                    "Polling rate set to  {}",
-                    style::g_cyan_bold(&format!("{hz} Hz"))
+                    "Polling rate set to  {}{}",
+                    style::g_cyan_bold(&format!("{hz} Hz")),
+                    if sector_model {
+                        style::dim("  (active profile)")
+                    } else {
+                        String::new()
+                    }
                 )),
                 OutputFormat::Json => {
                     sp.clear();

@@ -32,6 +32,13 @@ impl<T: HidTransport> HidppDevice<T> {
         }
     }
 
+    /// Test-only access to the underlying transport, for inspecting the bytes
+    /// written by a feature call (e.g. with `MockTransport::written_data`).
+    #[cfg(test)]
+    pub(crate) fn transport(&self) -> &T {
+        &self.transport
+    }
+
     /// Resolve the runtime index for a feature code.
     /// Result is cached; subsequent calls for the same code are instant.
     pub fn get_feature_index(&self, code: FeatureCode) -> Result<FeatureIndex, HidppError> {

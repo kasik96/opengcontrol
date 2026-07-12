@@ -24,7 +24,7 @@ pub enum Capability {
         zone_count: u8,
         zones: &'static [RgbZone],
     },
-    /// Feature 0x8110 — Onboard Profiles
+    /// Feature 0x8100 — Onboard Profiles
     OnboardProfiles { profile_count: u8 },
     /// Button remapping via onboard profiles
     ButtonRemapping { button_count: u8 },

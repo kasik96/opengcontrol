@@ -44,6 +44,11 @@ pub enum HidppError {
     #[error("Profile index {index} is out of range (device has {count} profiles, 0-indexed)")]
     ProfileIndexOutOfRange { index: u8, count: u8 },
 
+    #[error(
+        "Writing onboard profiles is not supported for memory model {memory_model} (only the flat memory_model 0 is supported)"
+    )]
+    UnsupportedProfileMemoryModel { memory_model: u8 },
+
     // I/O
     #[error("Config file I/O error: {0}")]
     Io(#[from] std::io::Error),

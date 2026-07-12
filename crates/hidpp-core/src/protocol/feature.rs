@@ -8,11 +8,20 @@ pub enum FeatureCode {
     IFeatureSet = 0x0001,
     IFirmwareInfo = 0x0003,
     DeviceName = 0x0005,
+    BatteryLevelStatus = 0x1000,
+    BatteryVoltage = 0x1001,
+    UnifiedBattery = 0x1004,
     AdjustableDpi = 0x2201,
     PollingRate = 0x8060,
     RgbEffects = 0x8070,
     PerKeyLighting = 0x8071,
-    OnboardProfiles = 0x8110,
+    OnboardProfiles = 0x8100,
+    ReprogControls = 0x1B00,
+    ReprogControlsV2 = 0x1B01,
+    ReprogControlsV2_2 = 0x1B02,
+    ReprogControlsV3 = 0x1B03,
+    ReprogControlsV4 = 0x1B04,
+    PersistentRemappableAction = 0x1C00,
 }
 
 impl FeatureCode {

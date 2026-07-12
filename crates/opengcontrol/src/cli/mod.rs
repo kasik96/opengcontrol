@@ -41,6 +41,13 @@ pub enum Commands {
     /// Show current device settings (DPI, polling rate, active profile)
     Info,
 
+    /// Show battery level and charging status
+    Battery {
+        /// Print only the percentage number (for scripts / menubar). Errors if unavailable.
+        #[arg(long)]
+        percent: bool,
+    },
+
     /// DPI configuration
     Dpi(dpi::DpiArgs),
 
