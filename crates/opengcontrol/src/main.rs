@@ -70,14 +70,16 @@ fn run() -> Result<(), String> {
 
     let ctx = open_device(Some(&path), output)?;
 
-    // Show device header in human mode before running the subcommand
-    if matches!(output, output::OutputFormat::Human) {
+    // Show device header in human mode before running the subcommand, except for
+    // `battery --percent`, whose stdout must be only the bare number.
+    let quiet = matches!(cli.command, Commands::Battery { percent: true });
+    if matches!(output, output::OutputFormat::Human) && !quiet {
         print_device_header(&ctx);
     }
 
     match cli.command {
         Commands::Info => handle_info(&ctx, output),
-        Commands::Battery => handle_battery(&ctx, output),
+        Commands::Battery { percent } => handle_battery(&ctx, output, percent),
         Commands::Dpi(args) => cli::dpi::handle_dpi(&ctx, &args.command, output),
         Commands::Polling(args) => cli::polling::handle_polling(&ctx, &args.command, output),
         Commands::Profile(args) => cli::profile::handle_profile(&ctx, &args.command, output),
@@ -176,7 +178,11 @@ fn battery_text(s: &hidpp_core::features::BatteryReading) -> String {
     format!("{} ({})", battery_charge_text(s), s.charging.as_str())
 }
 
-fn handle_battery(ctx: &DeviceContext, fmt: output::OutputFormat) -> Result<(), String> {
+fn handle_battery(
+    ctx: &DeviceContext,
+    fmt: output::OutputFormat,
+    percent_only: bool,
+) -> Result<(), String> {
     use hidpp_core::features::read_battery;
     use output::{json, OutputFormat};
 
@@ -189,6 +195,16 @@ fn handle_battery(ctx: &DeviceContext, fmt: output::OutputFormat) -> Result<(), 
         }
         Err(e) => return Err(e.to_string()),
     };
+
+    if percent_only {
+        return match r.percentage {
+            Some(p) => {
+                println!("{p}");
+                Ok(())
+            }
+            None => Err("battery percentage unavailable".to_string()),
+        };
+    }
 
     match fmt {
         OutputFormat::Human => {

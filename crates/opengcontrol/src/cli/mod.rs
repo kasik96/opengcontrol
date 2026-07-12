@@ -42,7 +42,11 @@ pub enum Commands {
     Info,
 
     /// Show battery level and charging status
-    Battery,
+    Battery {
+        /// Print only the percentage number (for scripts / menubar). Errors if unavailable.
+        #[arg(long)]
+        percent: bool,
+    },
 
     /// DPI configuration
     Dpi(dpi::DpiArgs),
