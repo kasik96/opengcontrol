@@ -616,6 +616,44 @@ impl OnboardProfiles {
         Ok(original)
     }
 
+    /// Set the polling rate on a sector-addressed device by rewriting the **active
+    /// profile's** report-rate byte (sector offset 0). On these devices the polling rate is
+    /// governed by the onboard profile, so the standalone ReportRate feature (0x8060)
+    /// rejects a direct set while in onboard mode (error `INVALID_ARGUMENT`). Writing the
+    /// profile is the persistent path. `hz` must be 125/250/500/1000.
+    pub fn set_poll_rate<T: HidTransport>(
+        device: &HidppDevice<T>,
+        hz: u16,
+    ) -> Result<(), HidppError> {
+        let idx = hz_to_polling_rate_index(hz);
+        if polling_rate_index_to_hz(idx) != hz {
+            return Err(HidppError::Transport(format!(
+                "unsupported polling rate {hz} Hz (use 125/250/500/1000)"
+            )));
+        }
+        let info = Self::get_info(device)?;
+        if info.memory_model != 0x01 {
+            return Err(HidppError::UnsupportedProfileMemoryModel {
+                memory_model: info.memory_model,
+            });
+        }
+        let active = Self::get_active_profile(device)?;
+        let sector = Self::profile_data_sector(device, active)?;
+        let mut data = Self::read_sector(device, sector, info.profile_size)?;
+        if data.first().copied() == Some(idx) {
+            return Ok(()); // already at this rate — skip the write (flash wear)
+        }
+        data[0] = idx;
+        Self::write_raw_sector(device, sector, &mut data)?;
+        let after = Self::read_sector(device, sector, info.profile_size)?;
+        if after.first().copied() != Some(idx) {
+            return Err(HidppError::Transport(
+                "read-back verification failed: poll rate did not persist".into(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Read the factory **ROM** default profile's sector bytes. The ROM directory lives at
     /// base `0x0100`; its first entry's data sector holds the default profile. Used to
     /// identify each physical button by its factory action (see [`Self::derive_button_remap`]).
